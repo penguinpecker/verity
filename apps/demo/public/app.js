@@ -1,13 +1,10 @@
-// Proving API base. Same-origin for local dev; the hosted Railway prover otherwise
-// (the zkTLS prover can't run on Vercel serverless, so the frontend on Vercel calls it).
+const SOURCE = new URLSearchParams(location.search).get('source') || 'cricket'
 const LOCAL = location.hostname === 'localhost' || location.hostname === '127.0.0.1'
 const API = LOCAL ? '' : (window.VERITY_PROVER || 'https://verity-prover-production.up.railway.app')
-
 const VERIFIER = '0x85804b684Ce86AC1773950161886741862EE9DBB'
 const ATTESTOR = '0x710FC3548Ed4F77A8Cffa179639866798Deb8bd1'
 const EXPLORER = 'https://explorer.horizen.io'
 
-// pipeline stages: [event-name OR client marker, label]
 const STAGES = [
   ['connecting', 'Connecting to attestor'],
   ['sending-request-data', 'Requesting data over TLS'],
@@ -18,24 +15,34 @@ const STAGES = [
 ]
 
 const $ = (id) => document.getElementById(id)
-const short = (a) => a ? a.slice(0, 6) + '…' + a.slice(-4) : '—'
+const short = (a) => (a ? a.slice(0, 6) + '…' + a.slice(-4) : '—')
 
-// wire up static links
 $('nav-contract').href = `${EXPLORER}/address/${VERIFIER}`
-$('nav-attestor').href = `${EXPLORER}/address/${ATTESTOR}`
-$('seal-link').href = `${EXPLORER}/address/${VERIFIER}`
 $('foot-contract').textContent = VERIFIER
 
-// current match readout (display only)
-let currentMatch = null
+let source = null
+let currentData = null
+
+fetch(API + '/api/sources')
+  .then((r) => r.json())
+  .then((list) => {
+    source = list.find((s) => s.id === SOURCE) || list[0]
+    $('src-host').textContent = source.host
+    $('src-pair').textContent = source.tag
+    $('attested-k').textContent = source.valueLabel
+    document.title = 'Verity — ' + source.label
+    tick()
+    setInterval(tick, 30000)
+  })
+  .catch(() => {})
+
 async function tick() {
+  if (!source) return
   try {
-    const r = await fetch(API + '/api/current')
-    const d = await r.json()
-    if (d.match) { $('live-match').textContent = d.match; currentMatch = d }
+    const d = await (await fetch(API + `/api/current?source=${source.id}`)).json()
+    if (d.headline) { $('live-match').textContent = d.headline; currentData = d }
   } catch { /* ignore */ }
 }
-tick(); setInterval(tick, 30000)
 
 function renderSteps() {
   const ol = $('steps'); ol.innerHTML = ''
@@ -49,18 +56,19 @@ function renderSteps() {
 }
 function setStage(key, state) {
   const rows = [...$('steps').children]
-  const idx = STAGES.findIndex(s => s[0] === key)
+  const idx = STAGES.findIndex((s) => s[0] === key)
   rows.forEach((li, i) => {
     li.classList.remove('active', 'done')
     if (i < idx) { li.classList.add('done'); li.querySelector('.dot').textContent = '✓' }
     else if (i === idx) {
       if (state === 'done') { li.classList.add('done'); li.querySelector('.dot').textContent = '✓' }
-      else { li.classList.add('active') }
+      else li.classList.add('active')
     }
   })
 }
 
 function run() {
+  if (!source) return
   const btn = $('run')
   btn.disabled = true
   $('err').hidden = true
@@ -69,20 +77,16 @@ function run() {
   $('pipeline').hidden = false
   renderSteps()
 
-  const es = new EventSource(API + '/api/prove')
-  es.addEventListener('meta', (e) => {
-    const m = JSON.parse(e.data)
-    $('fact-attestor').textContent = short(m.attestorUrl?.includes('//') ? ATTESTOR : ATTESTOR)
-  })
+  const es = new EventSource(API + `/api/prove?source=${source.id}`)
   es.addEventListener('step', (e) => {
     const { name } = JSON.parse(e.data)
-    if (STAGES.some(s => s[0] === name)) setStage(name, 'active')
+    if (STAGES.some((s) => s[0] === name)) setStage(name, 'active')
   })
   es.addEventListener('proof', (e) => {
     const p = JSON.parse(e.data)
     setStage('waiting-for-verification', 'done')
-    $('attested-score').textContent = p.data.score
-    if (currentMatch) $('attested-ctx').textContent = [currentMatch.name, currentMatch.status].filter(Boolean).join(' · ')
+    $('attested-score').textContent = (p.prefix || '') + p.value
+    if (currentData) $('attested-ctx').textContent = currentData.sub || currentData.headline
     $('fact-attestor').textContent = short(p.attestor)
     $('fact-id').textContent = short(p.identifier)
     $('result').hidden = false
@@ -96,15 +100,14 @@ function run() {
       setStage('submitting-tx', 'done')
       $('fact-tx').innerHTML = `<a href="${t.explorer}" target="_blank" rel="noopener">${short(t.hash)} ↗</a>`
       $('seal-link').href = t.explorer
-      $('seal-link').textContent = 'view transaction ↗'
       $('seal').hidden = false
       es.close(); done()
     }
   })
   es.addEventListener('error', (e) => {
-    let msg = 'attestor error'
+    let msg = ''
     try { msg = JSON.parse(e.data).message } catch { /* stream closed */ }
-    if (e.data) showError(msg)
+    if (msg) showError(msg)
     es.close(); done()
   })
 }
@@ -113,7 +116,7 @@ function showError(msg) { const el = $('err'); el.textContent = msg; el.hidden =
 function done() {
   const btn = $('run'); btn.disabled = false
   btn.querySelector('.run-label').textContent = 'Prove again'
-  btn.querySelector('.run-sub').textContent = 'new live proof'
+  btn.querySelector('.run-sub').textContent = 'new live proof + tx'
 }
 
 $('run').addEventListener('click', run)

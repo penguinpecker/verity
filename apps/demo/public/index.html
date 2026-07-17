@@ -16,7 +16,6 @@
   <header class="top">
     <div class="mark">◈ VERITY</div>
     <nav class="links">
-      <a id="nav-attestor" href="#" target="_blank" rel="noopener">attestor</a>
       <a id="nav-contract" href="#" target="_blank" rel="noopener">contract ↗</a>
       <a href="https://github.com/penguinpecker/verity" target="_blank" rel="noopener">github ↗</a>
     </nav>
@@ -27,77 +26,24 @@
       <p class="eyebrow reveal" style="--d:0">zkTLS · Horizen mainnet</p>
       <h1 class="reveal" style="--d:1">Prove real data.<br />Verify it <em>on-chain.</em></h1>
       <p class="lede reveal" style="--d:2">
-        A live value is fetched through a Verity attestor, sealed with a zero-knowledge proof of the
-        TLS response, and checked by a contract on Horizen — no oracle, no trust in this page.
+        Pick a live data source. Verity fetches it through an attestor, proves the response in
+        zero-knowledge, and records the result with a <strong>real transaction</strong> on Horizen —
+        no oracle, no trust in this page.
       </p>
     </section>
 
-    <section class="panel reveal" style="--d:3">
-      <div class="panel-head">
-        <div class="src">
-          <span class="src-label">source</span>
-          <span class="src-host">api.espn.com</span>
-          <span class="src-pair">IPL · Cricket</span>
-        </div>
-        <div class="live">
-          <span class="live-dot"></span>
-          <span class="live-label">match</span>
-          <span id="live-match" class="live-price">—</span>
-        </div>
+    <section class="sources reveal" style="--d:3">
+      <div class="sources-head">
+        <span class="sources-label">data sources</span>
+        <span class="sources-hint">each one → a live proof + on-chain tx</span>
       </div>
-
-      <div class="pipeline" id="pipeline" hidden>
-        <ol class="steps" id="steps"></ol>
-      </div>
-
-      <div class="result" id="result" hidden>
-        <div class="attested">
-          <div class="attested-k">attested score</div>
-          <div class="attested-v" id="attested-score">—</div>
-          <div class="attested-ctx" id="attested-ctx"></div>
-        </div>
-        <dl class="facts">
-          <div><dt>attestor</dt><dd id="fact-attestor" class="mono">—</dd></div>
-          <div><dt>claim id</dt><dd id="fact-id" class="mono">—</dd></div>
-          <div><dt>transaction</dt><dd id="fact-tx" class="mono">—</dd></div>
-          <div><dt>network</dt><dd class="mono">Horizen mainnet · 26514</dd></div>
-        </dl>
-      </div>
-
-      <div class="seal" id="seal" hidden>
-        <div class="seal-badge">
-          <span class="seal-check">✓</span>
-          <div class="seal-text">
-            <strong>VERIFIED</strong>
-            <span>on Horizen mainnet</span>
-          </div>
-        </div>
-        <a id="seal-link" class="seal-link mono" href="#" target="_blank" rel="noopener">view verifier contract ↗</a>
-      </div>
-
-      <button id="run" class="run">
-        <span class="run-label">Generate proof &amp; verify on-chain</span>
-        <span class="run-sub">~20s · real zkTLS proof</span>
-      </button>
-      <p class="err" id="err" hidden></p>
+      <div class="grid" id="grid"><p class="grid-loading mono">loading sources…</p></div>
     </section>
 
     <section class="how">
-      <div class="how-col reveal" style="--d:4">
-        <span class="how-n">01</span>
-        <h3>Witnessed fetch</h3>
-        <p>The request runs through the attestor, which relays only ciphertext and records the TLS transcript.</p>
-      </div>
-      <div class="how-col reveal" style="--d:5">
-        <span class="how-n">02</span>
-        <h3>Zero-knowledge proof</h3>
-        <p>The client proves the response decrypts to the revealed value — the key and everything else stay hidden.</p>
-      </div>
-      <div class="how-col reveal" style="--d:6">
-        <span class="how-n">03</span>
-        <h3>On-chain check</h3>
-        <p>The attestor signs the claim; the Horizen contract recovers the signature and confirms it on-chain.</p>
-      </div>
+      <div class="how-col reveal" style="--d:4"><span class="how-n">01</span><h3>Witnessed fetch</h3><p>The request runs through the attestor, which relays only ciphertext and records the TLS transcript.</p></div>
+      <div class="how-col reveal" style="--d:5"><span class="how-n">02</span><h3>Zero-knowledge proof</h3><p>The client proves the response decrypts to the revealed value — key and everything else stay hidden.</p></div>
+      <div class="how-col reveal" style="--d:6"><span class="how-n">03</span><h3>On-chain record</h3><p>A transaction re-checks the attestor signature on-chain and records the proof in the verifier contract.</p></div>
     </section>
   </main>
 
@@ -106,6 +52,6 @@
     <span class="mono" id="foot-contract">—</span>
   </footer>
 
-  <script src="/app.js"></script>
+  <script src="/landing.js"></script>
 </body>
 </html>

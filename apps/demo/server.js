@@ -1,8 +1,7 @@
-// Verity demo server.
-// - GET /api/price : current ETH/USD from Kraken (server-fetched, for the live readout)
-// - GET /api/prove : Server-Sent Events streaming the REAL zkTLS proof steps, then the proof
-//                    (contract-ready), generated against the live Verity attestor.
-// The browser then verifies that proof on Horizen mainnet itself (see public/app.js).
+// Verity demo server (multi-source).
+// - GET /api/sources          : the catalog of provable data sources
+// - GET /api/current?source=  : the current display value for a source
+// - GET /api/prove?source=    : SSE — real zkTLS proof steps, then a REAL Horizen-mainnet tx
 import express from 'express'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -13,11 +12,42 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const app = express()
 const PORT = process.env.PORT || 4000
 
-// Real, India-relevant, uncompressed source: ESPN's IPL cricket scoreboard.
-const SOURCE_URL = 'https://site.api.espn.com/apis/site/v2/sports/cricket/8048/scoreboard'
-const PROVE_MATCH = '"score":"(?<score>[0-9]+/[0-9]+)' // first team's runs/wickets, e.g. 161/5
+// Every source returns an UNCOMPRESSED response and proves one named group `value`.
+const SOURCES = {
+  cricket: {
+    host: 'api.espn.com', tag: 'IPL · Cricket', label: 'IPL cricket score', valueLabel: 'attested score', prefix: '',
+    url: 'https://site.api.espn.com/apis/site/v2/sports/cricket/8048/scoreboard',
+    match: '"score":"(?<value>[0-9]+/[0-9]+)',
+    current: (j) => { const e = j.events?.[0], c = e?.competitions?.[0]; return { headline: e?.shortName || '—', sub: [e?.name, c?.status?.type?.description].filter(Boolean).join(' · ') } },
+  },
+  eth: {
+    host: 'api.kraken.com', tag: 'ETH · Price', label: 'Ethereum price', valueLabel: 'attested price', prefix: '$',
+    url: 'https://api.kraken.com/0/public/Ticker?pair=ETHUSD',
+    match: '"c":\\["(?<value>[0-9.]+)"',
+    current: (j) => { const p = j.result?.XETHZUSD?.c?.[0]; return { headline: 'ETH / USD', sub: p ? '$' + Number(p).toFixed(2) + ' now' : '' } },
+  },
+  btc: {
+    host: 'api.kraken.com', tag: 'BTC · Price', label: 'Bitcoin price', valueLabel: 'attested price', prefix: '$',
+    url: 'https://api.kraken.com/0/public/Ticker?pair=XBTUSD',
+    match: '"c":\\["(?<value>[0-9.]+)"',
+    current: (j) => { const p = j.result?.XXBTZUSD?.c?.[0]; return { headline: 'BTC / USD', sub: p ? '$' + Number(p).toFixed(2) + ' now' : '' } },
+  },
+  iss: {
+    host: 'api.wheretheiss.at', tag: 'ISS · Location', label: 'ISS position', valueLabel: 'attested latitude', prefix: '',
+    url: 'https://api.wheretheiss.at/v1/satellites/25544',
+    match: '"latitude":(?<value>-?[0-9.]+)',
+    current: (j) => ({ headline: 'ISS · live orbit', sub: (j.latitude != null) ? `${Number(j.latitude).toFixed(2)}, ${Number(j.longitude).toFixed(2)}` : '' }),
+  },
+  weather: {
+    host: 'api.open-meteo.com', tag: 'Weather · Delhi', label: 'Delhi temperature', valueLabel: 'attested °C', prefix: '',
+    url: 'https://api.open-meteo.com/v1/forecast?latitude=28.61&longitude=77.20&current=temperature_2m',
+    match: '"temperature_2m":(?<value>-?[0-9.]+)',
+    current: (j) => ({ headline: 'New Delhi', sub: (j.current?.temperature_2m != null) ? `${j.current.temperature_2m} °C now` : '' }),
+  },
+}
+const getSource = (id) => SOURCES[id] || SOURCES.cricket
 
-// On-chain: submit a REAL verifyAndRecord() transaction to the Horizen-mainnet verifier.
+// On-chain: submit a REAL verifyAndRecord() tx to the Horizen-mainnet verifier.
 const VERIFIER = '0x85804b684Ce86AC1773950161886741862EE9DBB'
 const HORIZEN_RPC = 'https://horizen.calderachain.xyz/http'
 const EXPLORER = 'https://explorer.horizen.io'
@@ -28,7 +58,6 @@ const relayer = process.env.RELAYER_PRIVATE_KEY
   ? new Wallet(process.env.RELAYER_PRIVATE_KEY, new JsonRpcProvider(HORIZEN_RPC, 26514))
   : null
 
-// Allow the Vercel-hosted frontend to call this proving API cross-origin.
 app.use((req, res, next) => {
   res.set('Access-Control-Allow-Origin', '*')
   res.set('Access-Control-Allow-Methods', 'GET, OPTIONS')
@@ -36,66 +65,44 @@ app.use((req, res, next) => {
   if (req.method === 'OPTIONS') return res.sendStatus(204)
   next()
 })
-
 app.use(express.static(path.join(__dirname, 'public')))
 
-// Current match summary for the on-screen readout (display only — the proof is the real thing).
-app.get('/api/current', async (_req, res) => {
+app.get('/api/sources', (_req, res) => {
+  res.json(Object.entries(SOURCES).map(([id, s]) => ({
+    id, host: s.host, tag: s.tag, label: s.label, valueLabel: s.valueLabel, prefix: s.prefix,
+  })))
+})
+
+app.get('/api/current', async (req, res) => {
+  const s = getSource(req.query.source)
   try {
-    const r = await fetch(SOURCE_URL, { headers: { 'Accept-Encoding': 'identity', Accept: 'application/json' } })
-    const j = await r.json()
-    const e = j?.events?.[0]
-    const comp = e?.competitions?.[0]
-    res.json({
-      match: e?.shortName,
-      name: e?.name,
-      status: comp?.status?.type?.description,
-      teams: (comp?.competitors || []).map((c) => ({ name: c.team?.displayName, score: c.score })),
-    })
+    const r = await fetch(s.url, { headers: { 'Accept-Encoding': 'identity', Accept: 'application/json' } })
+    res.json(s.current(await r.json()))
   } catch (e) {
     res.status(502).json({ error: String(e?.message || e) })
   }
 })
 
-// Stream the real proof generation, step by step.
-app.get('/api/prove', async (_req, res) => {
-  res.set({
-    'Content-Type': 'text/event-stream',
-    'Cache-Control': 'no-cache',
-    Connection: 'keep-alive',
-  })
+app.get('/api/prove', async (req, res) => {
+  const s = getSource(req.query.source)
+  res.set({ 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' })
   res.flushHeaders?.()
   const send = (event, data) => res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
 
   const verity = new VerityClient()
-  send('meta', { source: SOURCE_URL, attestorUrl: verity.attestorUrl })
+  send('meta', { source: s.url, attestorUrl: verity.attestorUrl })
   try {
-    const proof = await verity.prove({
-      url: SOURCE_URL,
-      match: PROVE_MATCH,
-      onStep: (s) => send('step', { name: s?.name || String(s) }),
-    })
+    const proof = await verity.prove({ url: s.url, match: s.match, onStep: (st) => send('step', { name: st?.name || String(st) }) })
     const onchain = toOnchainProof(proof)
-    send('proof', {
-      data: proof.data,
-      attestor: proof.attestor,
-      identifier: proof.identifier,
-    })
+    send('proof', { value: proof.data.value, prefix: s.prefix, attestor: proof.attestor, identifier: proof.identifier })
 
-    // Submit a REAL on-chain transaction: the contract re-verifies the attestor
-    // signature and records the proof, emitting ProofVerified. Produces a tx hash.
     if (relayer) {
       send('step', { name: 'submitting-tx' })
       const contract = new Contract(VERIFIER, VERIFY_ABI, relayer)
       const tx = await contract.verifyAndRecord(onchain)
       send('tx', { hash: tx.hash, status: 'pending', explorer: `${EXPLORER}/tx/${tx.hash}` })
       const rc = await tx.wait()
-      send('tx', {
-        hash: tx.hash,
-        status: 'confirmed',
-        block: Number(rc.blockNumber),
-        explorer: `${EXPLORER}/tx/${tx.hash}`,
-      })
+      send('tx', { hash: tx.hash, status: 'confirmed', block: Number(rc.blockNumber), explorer: `${EXPLORER}/tx/${tx.hash}` })
     } else {
       send('error', { message: 'relayer not configured (set RELAYER_PRIVATE_KEY)' })
     }
@@ -107,6 +114,4 @@ app.get('/api/prove', async (_req, res) => {
   }
 })
 
-app.listen(PORT, () => {
-  console.log(`Verity demo on http://localhost:${PORT}`)
-})
+app.listen(PORT, () => console.log(`Verity demo on http://localhost:${PORT}`))

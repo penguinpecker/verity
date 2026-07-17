@@ -154,6 +154,28 @@ h1 em { font-style: italic; color: var(--mint); }
 .how-col h3 { font-family: var(--font-display); font-weight: 400; font-size: 25px; margin: 12px 0 10px; color: #fff; }
 .how-col p { font-size: 14.5px; color: var(--muted); }
 
+/* sources grid (landing) */
+.sources { margin-top: 8px; }
+.sources-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 18px; gap: 12px; flex-wrap: wrap; }
+.sources-label { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--mint); }
+.sources-hint { font-family: var(--font-mono); font-size: 12px; color: var(--dim); }
+.grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+.grid-loading { grid-column: 1 / -1; padding: 34px 0; color: var(--dim); }
+.card {
+  display: flex; flex-direction: column; gap: 10px;
+  background: linear-gradient(180deg, var(--bg-elev), var(--bg-panel));
+  border: 1px solid var(--line); border-radius: 14px; padding: 22px 22px 20px;
+  text-decoration: none; color: var(--text); transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+  box-shadow: 0 20px 50px -34px rgba(0, 0, 0, 0.8); min-height: 168px;
+}
+.card:hover { border-color: var(--mint-dim); transform: translateY(-3px); box-shadow: 0 26px 54px -28px var(--mint-dim); }
+.card-tag { font-size: 11px; letter-spacing: 0.1em; color: var(--muted); text-transform: uppercase; }
+.card-label { font-family: var(--font-display); font-size: 27px; color: #fff; line-height: 1.08; }
+.card-cur { font-size: 13px; color: var(--mint); min-height: 18px; }
+.card-go { font-size: 12px; color: var(--dim); margin-top: auto; padding-top: 10px; transition: color 0.2s; }
+.card:hover .card-go { color: var(--mint); }
+@media (max-width: 720px) { .grid { grid-template-columns: 1fr; } }
+
 /* footer */
 .foot { max-width: 1080px; margin: 0 auto; padding: 34px 32px 50px; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--line-2); }
 .foot span { font-family: var(--font-mono); font-size: 12px; color: var(--dim); letter-spacing: 0.06em; }

@@ -1,4 +1,5 @@
 require('@nomicfoundation/hardhat-ethers')
+require('@nomicfoundation/hardhat-verify')
 
 // Deployer key comes from the environment; never commit it.
 const PK = process.env.DEPLOYER_PRIVATE_KEY
@@ -24,4 +25,19 @@ module.exports = {
       accounts: PK ? [PK] : [],
     },
   },
+  // Blockscout-based source verification for the Horizen explorer.
+  etherscan: {
+    apiKey: { horizenMainnet: 'blockscout' },
+    customChains: [
+      {
+        network: 'horizenMainnet',
+        chainId: 26514,
+        urls: {
+          apiURL: 'https://horizen.calderaexplorer.xyz/api',
+          browserURL: 'https://explorer.horizen.io',
+        },
+      },
+    ],
+  },
+  sourcify: { enabled: false },
 }

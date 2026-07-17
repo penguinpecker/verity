@@ -213,7 +213,7 @@ Networks: Horizen testnet `2651420`, mainnet `26514` (gas is ETH; fund the deplo
 | `@verity/sdk` | prove / verify zkTLS proofs | ✅ working |
 | `services/attestor` | the witness + signer | ✅ live on Railway |
 | `packages/contracts` | on-chain `VerityVerifier` on Horizen (ZEN) mainnet | ✅ live: `0x8580…9DBB` |
-| `apps/demo` | client app: prove an IPL cricket score (ESPN) → verify on Horizen | ✅ working |
+| `apps/demo` | client app: prove 5 live data sources → real on-chain tx on Horizen | ✅ live |
 
 **Chain target:** Horizen (ZEN) L3 on Base — testnet `2651420`, mainnet `26514`. Gas is ETH; ZEN is the ecosystem token.
 

@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Verity — verify a data source</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;700&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div class="grain" aria-hidden="true"></div>
+  <div class="glow" aria-hidden="true"></div>
+
+  <header class="top">
+    <a class="mark" href="/">◈ VERITY</a>
+    <nav class="links">
+      <a href="/">← all sources</a>
+      <a id="nav-contract" href="#" target="_blank" rel="noopener">contract ↗</a>
+      <a href="https://github.com/penguinpecker/verity" target="_blank" rel="noopener">github ↗</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero">
+      <p class="eyebrow reveal" style="--d:0">zkTLS · Horizen mainnet</p>
+      <h1 class="reveal" style="--d:1" id="hero-title">Prove real data.<br />Verify it <em>on-chain.</em></h1>
+      <p class="lede reveal" style="--d:2">
+        This value is fetched through a Verity attestor, sealed with a zero-knowledge proof of the
+        TLS response, and <strong>recorded by a real transaction</strong> on Horizen — no oracle, no trust in this page.
+      </p>
+    </section>
+
+    <section class="panel reveal" style="--d:3">
+      <div class="panel-head">
+        <div class="src">
+          <span class="src-label">source</span>
+          <span class="src-host" id="src-host">—</span>
+          <span class="src-pair" id="src-pair">—</span>
+        </div>
+        <div class="live">
+          <span class="live-dot"></span>
+          <span class="live-label">current</span>
+          <span id="live-match" class="live-price">—</span>
+        </div>
+      </div>
+
+      <div class="pipeline" id="pipeline" hidden><ol class="steps" id="steps"></ol></div>
+
+      <div class="result" id="result" hidden>
+        <div class="attested">
+          <div class="attested-k" id="attested-k">attested value</div>
+          <div class="attested-v" id="attested-score">—</div>
+          <div class="attested-ctx" id="attested-ctx"></div>
+        </div>
+        <dl class="facts">
+          <div><dt>attestor</dt><dd id="fact-attestor" class="mono">—</dd></div>
+          <div><dt>claim id</dt><dd id="fact-id" class="mono">—</dd></div>
+          <div><dt>transaction</dt><dd id="fact-tx" class="mono">—</dd></div>
+          <div><dt>network</dt><dd class="mono">Horizen mainnet · 26514</dd></div>
+        </dl>
+      </div>
+
+      <div class="seal" id="seal" hidden>
+        <div class="seal-badge">
+          <span class="seal-check">✓</span>
+          <div class="seal-text"><strong>VERIFIED</strong><span>recorded on Horizen mainnet</span></div>
+        </div>
+        <a id="seal-link" class="seal-link mono" href="#" target="_blank" rel="noopener">view transaction ↗</a>
+      </div>
+
+      <button id="run" class="run">
+        <span class="run-label">Generate proof &amp; verify on-chain</span>
+        <span class="run-sub">~25s · real zkTLS proof + tx</span>
+      </button>
+      <p class="err" id="err" hidden></p>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <span>Verity</span>
+    <span class="mono" id="foot-contract">—</span>
+  </footer>
+
+  <script src="/app.js"></script>
+</body>
+</html>
