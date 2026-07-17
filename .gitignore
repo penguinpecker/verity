@@ -20,3 +20,4 @@ packages/contracts/artifacts/
 packages/contracts/cache/
 packages/contracts/test/fixtures/
 typechain-types/
+records.txt

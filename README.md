@@ -183,8 +183,10 @@ const ok = await verifier.isValidProof(onchain)  // true — verified on-chain
 // or gate an action:  require(verifier.verifyProof(onchain))
 ```
 
+**Live on Horizen mainnet (26514): [`0xDe8b9A89DcF74CD1B47802F8e10fCF3D4F56faDd`](https://explorer.horizen.io/address/0xDe8b9A89DcF74CD1B47802F8e10fCF3D4F56faDd)** — trusts the hosted attestor `0x710F…8bd1`; verified against a real proof on-chain.
+
 The contract (`packages/contracts`) is tested against **real** attestor signatures and
-rejects tampered claims and untrusted signers. Deploy it with your attestor's address:
+rejects tampered claims and untrusted signers. Deploy your own with your attestor's address:
 
 ```bash
 cd packages/contracts
@@ -210,7 +212,7 @@ Networks: Horizen testnet `2651420`, mainnet `26514` (gas is ETH; fund the deplo
 |-----------|-----------|--------|
 | `@verity/sdk` | prove / verify zkTLS proofs | ✅ working |
 | `services/attestor` | the witness + signer | ✅ live on Railway |
-| `packages/contracts` | on-chain `VerityVerifier` for Horizen (ZEN) L3 | ✅ working (tested); live deploy pending gas |
+| `packages/contracts` | on-chain `VerityVerifier` on Horizen (ZEN) mainnet | ✅ live: `0xDe8b…faDd` |
 | Data source + demo app | a reference integration | 🔜 planned |
 
 **Chain target:** Horizen (ZEN) L3 on Base — testnet `2651420`, mainnet `26514`. Gas is ETH; ZEN is the ecosystem token.
