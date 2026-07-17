@@ -15,9 +15,12 @@ const PORT = process.env.PORT || 4000
 // KYC sandbox — a demo identity behind a bearer token. Demonstrates the credential-
 // redaction pattern that real KYC (Aadhaar / DigiLocker) uses, WITHOUT real national-ID PII.
 // (Clearly a sandbox: demo persona, masked id, not the real UIDAI system.)
-const SANDBOX_TOKEN = 'verity-sandbox-kyc-2026'
-const SANDBOX_KYC = { kyc: { status: 'verified', fullName: 'Aarav Sharma', dob: '2001-03-14', age: 24, country: 'IN', idType: 'aadhaar', idMasked: 'XXXX XXXX 4321', verifiedAt: '2026-07-18' } }
+const SANDBOX_TOKEN = 'verity-sandbox-2026' // a demo "login" — redacted from every proof
 const PROVER_ORIGIN = process.env.PROVER_ORIGIN || 'https://verity-prover-production.up.railway.app'
+// Sandbox identities behind the token (no real PII). The real flow swaps these for the
+// DigiLocker / bank OAuth endpoint once partner credentials land — the pipeline is identical.
+const SANDBOX_AADHAAR = { name: 'Aarav Sharma', gender: 'M', dob: '14032001', aadhaarMasked: 'XXXX XXXX 4321', digilockerid: 'demo-in-001' } // dob DDMMYYYY = 14 Mar 2001
+const SANDBOX_USBANK = { holder: 'Jordan Miller', accountMasked: '****6789', balanceUsd: 42500, currency: 'USD', ssnMasked: '***-**-4321', dob: '1990-06-12' }
 
 // Every source returns an UNCOMPRESSED response and proves one named group `value`.
 const SOURCES = {
@@ -51,13 +54,26 @@ const SOURCES = {
     match: '"temperature_2m":(?<value>-?[0-9.]+)',
     current: (j) => ({ headline: 'New Delhi', sub: (j.current?.temperature_2m != null) ? `${j.current.temperature_2m} °C now` : '' }),
   },
-  kyc: {
-    host: 'verity.sandbox', tag: 'KYC · Sandbox', label: 'Aadhaar-style KYC check', valueLabel: 'attested status', prefix: '',
-    note: 'Same pattern as a real Aadhaar / DigiLocker check: the ID number and the login credential are redacted — only "verified" is revealed and put on-chain.',
-    url: PROVER_ORIGIN + '/sandbox/kyc',
-    secret: { authorisationHeader: 'Bearer ' + SANDBOX_TOKEN }, // the "login" — redacted from the proof
-    match: '"status":"(?<value>verified)"',
-    current: (j) => ({ headline: 'sandbox identity · aadhaar', sub: j?.kyc?.status ? `${j.kyc.status} · ${j.kyc.country} · PII redacted` : '' }),
+  // --- Verification GATES: prove a predicate, the app gets only YES/NO ---
+  aadhaar: {
+    host: 'digilocker.sandbox', tag: 'India · Aadhaar', label: 'Aadhaar age check', valueLabel: 'age check', prefix: '',
+    gate: true, question: 'Is this user 18 or older?', pass: 'Over 18', hide: 'date of birth + Aadhaar number',
+    note: 'Real DigiLocker (Aadhaar) OAuth flow — the app receives only YES/NO. The date of birth and the Aadhaar number are never revealed to the app.',
+    url: PROVER_ORIGIN + '/sandbox/india/aadhaar',
+    secret: { authorisationHeader: 'Bearer ' + SANDBOX_TOKEN }, // the login — redacted from the proof
+    // no capture group -> the DOB never lands in proof.data; attestor signs iff DOB implies age >= 18 (DDMMYYYY)
+    match: '"dob":"(?:\\d{2}\\d{2}(?:19\\d{2}|200[0-7])|\\d{2}0[1-6]2008|(?:0[1-9]|1[0-8])072008)"',
+    current: () => ({ headline: 'Aadhaar KYC · India', sub: 'proves age ≥ 18 · DOB stays private' }),
+  },
+  usbank: {
+    host: 'bank.sandbox', tag: 'US · Proof of funds', label: 'US bank balance check', valueLabel: 'funds check', prefix: '',
+    gate: true, question: 'Does this user hold ≥ $25,000?', pass: 'Funds ≥ $25,000', hide: 'the exact balance, account & SSN',
+    note: 'Real US bank / Plaid flow — the app learns only that funds ≥ $25,000. The exact balance, account number and SSN are never revealed.',
+    url: PROVER_ORIGIN + '/sandbox/us/bank',
+    secret: { authorisationHeader: 'Bearer ' + SANDBOX_TOKEN },
+    // no capture group -> exact balance hidden; attestor signs iff balanceUsd >= 25000
+    match: '"balanceUsd":(?:2[5-9]\\d{3}|[3-9]\\d{4}|\\d{6,})',
+    current: () => ({ headline: 'US bank · sandbox', sub: 'proves balance ≥ $25k · amount stays private' }),
   },
 }
 const getSource = (id) => SOURCES[id] || SOURCES.cricket
@@ -82,15 +98,20 @@ app.use((req, res, next) => {
 })
 app.use(express.static(path.join(__dirname, 'public')))
 
-// Sandbox KYC endpoint: a demo identity gated by a bearer token.
-app.get('/sandbox/kyc', (req, res) => {
+// Sandbox identity endpoints: a demo identity gated by a bearer "login".
+app.get('/sandbox/india/aadhaar', (req, res) => {
   if (req.get('authorization') !== 'Bearer ' + SANDBOX_TOKEN) return res.status(401).json({ error: 'unauthorized' })
-  res.json(SANDBOX_KYC)
+  res.json(SANDBOX_AADHAAR)
+})
+app.get('/sandbox/us/bank', (req, res) => {
+  if (req.get('authorization') !== 'Bearer ' + SANDBOX_TOKEN) return res.status(401).json({ error: 'unauthorized' })
+  res.json(SANDBOX_USBANK)
 })
 
 app.get('/api/sources', (_req, res) => {
   res.json(Object.entries(SOURCES).map(([id, s]) => ({
     id, host: s.host, tag: s.tag, label: s.label, valueLabel: s.valueLabel, prefix: s.prefix, note: s.note || '',
+    gate: !!s.gate, question: s.question || '', pass: s.pass || '', hide: s.hide || '',
   })))
 })
 
@@ -117,7 +138,7 @@ app.get('/api/prove', async (req, res) => {
   try {
     const proof = await verity.prove({ url: s.url, match: s.match, secretParams: s.secret, onStep: (st) => send('step', { name: st?.name || String(st) }) })
     const onchain = toOnchainProof(proof)
-    send('proof', { value: proof.data.value, prefix: s.prefix, attestor: proof.attestor, identifier: proof.identifier })
+    send('proof', { value: proof.data.value, prefix: s.prefix, gate: !!s.gate, pass: s.pass, hide: s.hide, attestor: proof.attestor, identifier: proof.identifier })
 
     if (relayer) {
       send('step', { name: 'submitting-tx' })

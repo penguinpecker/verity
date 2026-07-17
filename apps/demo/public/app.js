@@ -29,7 +29,7 @@ fetch(API + '/api/sources')
     source = list.find((s) => s.id === SOURCE) || list[0]
     $('src-host').textContent = source.host
     $('src-pair').textContent = source.tag
-    $('attested-k').textContent = source.valueLabel
+    $('attested-k').textContent = source.gate ? source.question : source.valueLabel
     if (source.note) { $('src-note').textContent = source.note; $('src-note').hidden = false }
     document.title = 'Verity — ' + source.label
     tick()
@@ -86,8 +86,13 @@ function run() {
   es.addEventListener('proof', (e) => {
     const p = JSON.parse(e.data)
     setStage('waiting-for-verification', 'done')
-    $('attested-score').textContent = (p.prefix || '') + p.value
-    if (currentData) $('attested-ctx').textContent = currentData.sub || currentData.headline
+    if (p.gate) {
+      $('attested-score').textContent = 'YES'
+      $('attested-ctx').textContent = (p.pass ? p.pass + ' · ' : '') + (p.hide || 'the underlying data') + ' never revealed'
+    } else {
+      $('attested-score').textContent = (p.prefix || '') + p.value
+      if (currentData) $('attested-ctx').textContent = currentData.sub || currentData.headline
+    }
     $('fact-attestor').textContent = short(p.attestor)
     $('fact-id').textContent = short(p.identifier)
     $('result').hidden = false
