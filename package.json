@@ -1,0 +1,14 @@
+{
+  "name": "verity",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Verity — prove real web data with zkTLS, verify on the ZEN (Horizen) appchain.",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "license": "MIT"
+}

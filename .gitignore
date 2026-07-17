@@ -1,0 +1,15 @@
+node_modules/
+dist/
+out/
+cache/
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+
+# Local-only research artifacts (kept out of the repo)
+learnings.txt
+parts/
+horizen/
+scratchpad/
