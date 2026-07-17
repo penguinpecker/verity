@@ -1,3 +1,8 @@
+// Proving API base. Same-origin for local dev; the hosted Railway prover otherwise
+// (the zkTLS prover can't run on Vercel serverless, so the frontend on Vercel calls it).
+const LOCAL = location.hostname === 'localhost' || location.hostname === '127.0.0.1'
+const API = LOCAL ? '' : (window.VERITY_PROVER || 'https://verity-prover-production.up.railway.app')
+
 const VERIFIER = '0xDe8b9A89DcF74CD1B47802F8e10fCF3D4F56faDd'
 const ATTESTOR = '0x710FC3548Ed4F77A8Cffa179639866798Deb8bd1'
 const HORIZEN_RPC = 'https://horizen.calderachain.xyz/http'
@@ -25,15 +30,16 @@ $('nav-attestor').href = `${EXPLORER}/address/${ATTESTOR}`
 $('seal-link').href = `${EXPLORER}/address/${VERIFIER}`
 $('foot-contract').textContent = VERIFIER
 
-// live price ticker (display only)
+// current match readout (display only)
+let currentMatch = null
 async function tick() {
   try {
-    const r = await fetch('/api/price')
-    const { price } = await r.json()
-    if (price) $('live-price').textContent = Number(price).toFixed(2)
+    const r = await fetch(API + '/api/current')
+    const d = await r.json()
+    if (d.match) { $('live-match').textContent = d.match; currentMatch = d }
   } catch { /* ignore */ }
 }
-tick(); setInterval(tick, 10000)
+tick(); setInterval(tick, 30000)
 
 function renderSteps() {
   const ol = $('steps'); ol.innerHTML = ''
@@ -77,7 +83,7 @@ function run() {
   $('pipeline').hidden = false
   renderSteps()
 
-  const es = new EventSource('/api/prove')
+  const es = new EventSource(API + '/api/prove')
   es.addEventListener('meta', (e) => {
     const m = JSON.parse(e.data)
     $('fact-attestor').textContent = short(m.attestorUrl?.includes('//') ? ATTESTOR : ATTESTOR)
@@ -89,7 +95,8 @@ function run() {
   es.addEventListener('proof', async (e) => {
     const p = JSON.parse(e.data)
     setStage('waiting-for-verification', 'done')
-    $('attested-price').textContent = Number(p.data.price).toFixed(2)
+    $('attested-score').textContent = p.data.score
+    if (currentMatch) $('attested-ctx').textContent = [currentMatch.name, currentMatch.status].filter(Boolean).join(' · ')
     $('fact-attestor').textContent = short(p.attestor)
     $('fact-id').textContent = short(p.identifier)
     $('result').hidden = false
