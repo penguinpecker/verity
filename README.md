@@ -14,12 +14,12 @@ your app ──fetch through──▶ Verity attestor ──TLS──▶ data so
 
 ## Quickstart
 
-Point the SDK at a running attestor (see [Run an attestor](#run-an-attestor)), then:
+The SDK talks to a **hosted Verity attestor by default** — no setup needed to try it. (Run your own for production; see [Run an attestor](#run-an-attestor).)
 
 ```js
 import { VerityClient } from '@verity/sdk'
 
-const verity = new VerityClient({ attestorUrl: 'ws://localhost:8001/ws' })
+const verity = new VerityClient() // uses the hosted attestor; pass { attestorUrl } to self-host
 
 // Prove a value from a live API. The named regex group becomes proof.data.
 const proof = await verity.prove({
@@ -67,7 +67,7 @@ npm install github:penguinpecker/verity#main
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `attestorUrl` | `string` | `ws://localhost:8001/ws` (or `VERITY_ATTESTOR_URL`) | ws/wss URL of your Verity attestor. |
+| `attestorUrl` | `string` | hosted attestor (or `VERITY_ATTESTOR_URL`) | ws/wss URL of your Verity attestor. |
 | `appKey` | `string` | random | 0x-prefixed private key identifying your app (the claim "owner"). Persist one to keep a stable identity. |
 | `zkEngine` | `string` | `'stwo'` | `'stwo'` (works everywhere) \| `'gnark'` (Linux, faster) \| `'snarkjs'`. |
 | `trustedAttestors` | `string[]` | `[]` | Attestor addresses to accept in `verify()`. **Set this in production.** |
@@ -135,7 +135,7 @@ const proof = await verity.prove({
 import { verifyProof } from '@verity/sdk'
 
 const ok = await verifyProof(proofFromClient, {
-  trustedAttestors: ['0xce92314d610ad563e9dc2aa2022e77bbc2d2726d'], // your attestor address
+  trustedAttestors: ['0x710fc3548ed4f77a8cffa179639866798deb8bd1'], // your attestor address
 })
 if (!ok) throw new Error('invalid or untrusted proof')
 ```
@@ -153,7 +153,7 @@ proof.data   // { lat: "51.19...", lon: "-0.53..." }
 
 ## Run an attestor
 
-The attestor is a small WebSocket service. Run it locally for development or deploy it on **Railway** for production. Full steps are in [`services/attestor/README.md`](services/attestor/README.md).
+A hosted Verity attestor is live at `wss://verity-attestor-production.up.railway.app/ws` (the SDK's default). To run your **own** — locally for development or on **Railway** for production — full steps are in [`services/attestor/README.md`](services/attestor/README.md).
 
 ```bash
 # local, quickest path
@@ -209,7 +209,7 @@ Networks: Horizen testnet `2651420`, mainnet `26514` (gas is ETH; fund the deplo
 | Component | What it is | Status |
 |-----------|-----------|--------|
 | `@verity/sdk` | prove / verify zkTLS proofs | ✅ working |
-| `services/attestor` | the witness + signer | ✅ working (self-host); Railway deploy |
+| `services/attestor` | the witness + signer | ✅ live on Railway |
 | `packages/contracts` | on-chain `VerityVerifier` for Horizen (ZEN) L3 | ✅ working (tested); live deploy pending gas |
 | Data source + demo app | a reference integration | 🔜 planned |
 

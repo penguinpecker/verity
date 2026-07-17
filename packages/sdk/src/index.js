@@ -20,7 +20,7 @@ setCryptoImplementation(webcryptoCrypto)
 
 const DEFAULT_ATTESTOR_URL =
   (typeof process !== 'undefined' && process.env && process.env.VERITY_ATTESTOR_URL) ||
-  'ws://localhost:8001/ws'
+  'wss://verity-attestor-production.up.railway.app/ws' // hosted Verity attestor; override for self-host
 
 const silentLogger = {
   info() {}, warn() {}, error() {}, debug() {}, trace() {},
