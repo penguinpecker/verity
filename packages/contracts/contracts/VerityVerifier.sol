@@ -21,9 +21,16 @@ contract VerityVerifier {
 	/// minimum number of distinct trusted attestor signatures required
 	uint8 public threshold;
 
+	/// running count of proofs recorded on-chain
+	uint256 public verifiedCount;
+	/// identifier => recorded on-chain
+	mapping(bytes32 => bool) public recorded;
+
 	event AttestorSet(address indexed attestor, bool trusted);
 	event ThresholdSet(uint8 threshold);
 	event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+	/// emitted when a proof is verified AND recorded in a transaction
+	event ProofVerified(bytes32 indexed identifier, address indexed submitter, uint256 index);
 
 	modifier onlyOwner() {
 		require(msg.sender == owner, "VerityVerifier: not owner");
@@ -118,5 +125,16 @@ contract VerityVerifier {
 			if (!seen) distinctTrusted++;
 		}
 		return distinctTrusted >= threshold;
+	}
+
+	/// @notice Verify a proof AND record it on-chain — a state-changing transaction.
+	/// Reverts if the proof is invalid. Emits ProofVerified and returns the running index.
+	function verifyAndRecord(Proof memory proof) external returns (uint256) {
+		verifyProof(proof); // reverts on invalid signature / untrusted attestor
+		bytes32 id = proof.signedClaim.claim.identifier;
+		verifiedCount += 1;
+		recorded[id] = true;
+		emit ProofVerified(id, msg.sender, verifiedCount);
+		return verifiedCount;
 	}
 }

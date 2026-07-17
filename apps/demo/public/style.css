@@ -118,6 +118,8 @@ h1 em { font-style: italic; color: var(--mint); }
 .facts > div { display: flex; justify-content: space-between; gap: 16px; border-bottom: 1px solid var(--line-2); padding-bottom: 11px; }
 .facts dt { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--dim); }
 .facts dd { font-size: 13px; color: var(--muted); text-align: right; }
+.facts dd a { color: var(--mint); text-decoration: none; }
+.facts dd a:hover { text-decoration: underline; }
 .mono { font-family: var(--font-mono); }
 
 /* verified seal */

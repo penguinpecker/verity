@@ -3,22 +3,18 @@
 const LOCAL = location.hostname === 'localhost' || location.hostname === '127.0.0.1'
 const API = LOCAL ? '' : (window.VERITY_PROVER || 'https://verity-prover-production.up.railway.app')
 
-const VERIFIER = '0xDe8b9A89DcF74CD1B47802F8e10fCF3D4F56faDd'
+const VERIFIER = '0x85804b684Ce86AC1773950161886741862EE9DBB'
 const ATTESTOR = '0x710FC3548Ed4F77A8Cffa179639866798Deb8bd1'
-const HORIZEN_RPC = 'https://horizen.calderachain.xyz/http'
 const EXPLORER = 'https://explorer.horizen.io'
-const ABI = [
-  'function isValidProof(((string provider,string parameters,string context) claimInfo,((bytes32 identifier,address owner,uint32 timestampS,uint32 epoch) claim,bytes[] signatures) signedClaim) proof) view returns (bool)',
-]
 
-// pipeline stages: [event-name-from-attestor OR client marker, label]
+// pipeline stages: [event-name OR client marker, label]
 const STAGES = [
   ['connecting', 'Connecting to attestor'],
   ['sending-request-data', 'Requesting data over TLS'],
   ['waiting-for-response', 'Witnessing TLS response'],
   ['generating-zk-proofs', 'Generating zero-knowledge proof'],
   ['waiting-for-verification', 'Attestor verifying & signing'],
-  ['verify-onchain', 'Verifying on Horizen mainnet'],
+  ['submitting-tx', 'Recording on Horizen mainnet · tx'],
 ]
 
 const $ = (id) => document.getElementById(id)
@@ -64,16 +60,6 @@ function setStage(key, state) {
   })
 }
 
-async function verifyOnChain(onchainProof) {
-  setStage('verify-onchain', 'active')
-  const provider = new ethers.JsonRpcProvider(HORIZEN_RPC, 26514)
-  const c = new ethers.Contract(VERIFIER, ABI, provider)
-  const ok = await c.isValidProof(onchainProof)
-  if (!ok) throw new Error('contract returned false')
-  setStage('verify-onchain', 'done')
-  $('seal').hidden = false
-}
-
 function run() {
   const btn = $('run')
   btn.disabled = true
@@ -92,7 +78,7 @@ function run() {
     const { name } = JSON.parse(e.data)
     if (STAGES.some(s => s[0] === name)) setStage(name, 'active')
   })
-  es.addEventListener('proof', async (e) => {
+  es.addEventListener('proof', (e) => {
     const p = JSON.parse(e.data)
     setStage('waiting-for-verification', 'done')
     $('attested-score').textContent = p.data.score
@@ -100,12 +86,20 @@ function run() {
     $('fact-attestor').textContent = short(p.attestor)
     $('fact-id').textContent = short(p.identifier)
     $('result').hidden = false
-    try {
-      await verifyOnChain(p.onchainProof)
-    } catch (err) {
-      showError('on-chain verify failed: ' + (err.message || err))
+  })
+  es.addEventListener('tx', (e) => {
+    const t = JSON.parse(e.data)
+    if (t.status === 'pending') {
+      setStage('submitting-tx', 'active')
+      $('fact-tx').innerHTML = `<a href="${t.explorer}" target="_blank" rel="noopener">${short(t.hash)} · pending…</a>`
+    } else {
+      setStage('submitting-tx', 'done')
+      $('fact-tx').innerHTML = `<a href="${t.explorer}" target="_blank" rel="noopener">${short(t.hash)} ↗</a>`
+      $('seal-link').href = t.explorer
+      $('seal-link').textContent = 'view transaction ↗'
+      $('seal').hidden = false
+      es.close(); done()
     }
-    es.close(); done()
   })
   es.addEventListener('error', (e) => {
     let msg = 'attestor error'

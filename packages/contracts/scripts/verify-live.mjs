@@ -2,7 +2,7 @@ import { VerityClient, toOnchainProof } from '../../sdk/src/index.js'
 import { JsonRpcProvider, Contract } from 'ethers'
 import fs from 'node:fs'; import path from 'node:path'; import { fileURLToPath } from 'node:url'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const VERIFIER = '0xDe8b9A89DcF74CD1B47802F8e10fCF3D4F56faDd'
+const VERIFIER = '0x85804b684Ce86AC1773950161886741862EE9DBB'
 const abi = JSON.parse(fs.readFileSync(path.join(__dirname,'..','artifacts','contracts','VerityVerifier.sol','VerityVerifier.json'),'utf8')).abi
 
 // 1) real proof from the LIVE Railway attestor (SDK default)
