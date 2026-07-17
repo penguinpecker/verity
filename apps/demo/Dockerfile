@@ -11,6 +11,9 @@ WORKDIR /app
 
 # Clone the public repo (contains packages/sdk + apps/demo).
 ARG VERITY_REF=main
+# Bust the Docker layer cache whenever `main` moves — otherwise a byte-identical
+# clone step gets cache-hit and bakes in stale code.
+ADD https://api.github.com/repos/penguinpecker/verity/commits/${VERITY_REF} /tmp/verity-head.json
 RUN git clone --depth 1 --branch ${VERITY_REF} https://github.com/penguinpecker/verity.git .
 
 # SDK deps (build native re2), then demo deps.
