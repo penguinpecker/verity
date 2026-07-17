@@ -12,6 +12,13 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const app = express()
 const PORT = process.env.PORT || 4000
 
+// KYC sandbox — a demo identity behind a bearer token. Demonstrates the credential-
+// redaction pattern that real KYC (Aadhaar / DigiLocker) uses, WITHOUT real national-ID PII.
+// (Clearly a sandbox: demo persona, masked id, not the real UIDAI system.)
+const SANDBOX_TOKEN = 'verity-sandbox-kyc-2026'
+const SANDBOX_KYC = { kyc: { status: 'verified', fullName: 'Aarav Sharma', dob: '2001-03-14', age: 24, country: 'IN', idType: 'aadhaar', idMasked: 'XXXX XXXX 4321', verifiedAt: '2026-07-18' } }
+const PROVER_ORIGIN = process.env.PROVER_ORIGIN || 'https://verity-prover-production.up.railway.app'
+
 // Every source returns an UNCOMPRESSED response and proves one named group `value`.
 const SOURCES = {
   cricket: {
@@ -44,6 +51,14 @@ const SOURCES = {
     match: '"temperature_2m":(?<value>-?[0-9.]+)',
     current: (j) => ({ headline: 'New Delhi', sub: (j.current?.temperature_2m != null) ? `${j.current.temperature_2m} °C now` : '' }),
   },
+  kyc: {
+    host: 'verity.sandbox', tag: 'KYC · Sandbox', label: 'Aadhaar-style KYC check', valueLabel: 'attested status', prefix: '',
+    note: 'Same pattern as a real Aadhaar / DigiLocker check: the ID number and the login credential are redacted — only "verified" is revealed and put on-chain.',
+    url: PROVER_ORIGIN + '/sandbox/kyc',
+    secret: { authorisationHeader: 'Bearer ' + SANDBOX_TOKEN }, // the "login" — redacted from the proof
+    match: '"status":"(?<value>verified)"',
+    current: (j) => ({ headline: 'sandbox identity · aadhaar', sub: j?.kyc?.status ? `${j.kyc.status} · ${j.kyc.country} · PII redacted` : '' }),
+  },
 }
 const getSource = (id) => SOURCES[id] || SOURCES.cricket
 
@@ -67,16 +82,24 @@ app.use((req, res, next) => {
 })
 app.use(express.static(path.join(__dirname, 'public')))
 
+// Sandbox KYC endpoint: a demo identity gated by a bearer token.
+app.get('/sandbox/kyc', (req, res) => {
+  if (req.get('authorization') !== 'Bearer ' + SANDBOX_TOKEN) return res.status(401).json({ error: 'unauthorized' })
+  res.json(SANDBOX_KYC)
+})
+
 app.get('/api/sources', (_req, res) => {
   res.json(Object.entries(SOURCES).map(([id, s]) => ({
-    id, host: s.host, tag: s.tag, label: s.label, valueLabel: s.valueLabel, prefix: s.prefix,
+    id, host: s.host, tag: s.tag, label: s.label, valueLabel: s.valueLabel, prefix: s.prefix, note: s.note || '',
   })))
 })
 
 app.get('/api/current', async (req, res) => {
   const s = getSource(req.query.source)
   try {
-    const r = await fetch(s.url, { headers: { 'Accept-Encoding': 'identity', Accept: 'application/json' } })
+    const headers = { 'Accept-Encoding': 'identity', Accept: 'application/json' }
+    if (s.secret?.authorisationHeader) headers.Authorization = s.secret.authorisationHeader
+    const r = await fetch(s.url, { headers })
     res.json(s.current(await r.json()))
   } catch (e) {
     res.status(502).json({ error: String(e?.message || e) })
@@ -92,7 +115,7 @@ app.get('/api/prove', async (req, res) => {
   const verity = new VerityClient()
   send('meta', { source: s.url, attestorUrl: verity.attestorUrl })
   try {
-    const proof = await verity.prove({ url: s.url, match: s.match, onStep: (st) => send('step', { name: st?.name || String(st) }) })
+    const proof = await verity.prove({ url: s.url, match: s.match, secretParams: s.secret, onStep: (st) => send('step', { name: st?.name || String(st) }) })
     const onchain = toOnchainProof(proof)
     send('proof', { value: proof.data.value, prefix: s.prefix, attestor: proof.attestor, identifier: proof.identifier })
 

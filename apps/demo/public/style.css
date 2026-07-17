@@ -90,6 +90,7 @@ h1 em { font-style: italic; color: var(--mint); }
 .live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--mint); box-shadow: 0 0 0 0 var(--mint-dim); animation: pulse 1.8s infinite; }
 .live-label { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); }
 .live-price { font-family: var(--font-mono); font-size: 15px; color: var(--mint); min-width: 76px; text-align: right; }
+.src-note { margin-top: 20px; padding: 13px 15px; border-left: 2px solid var(--mint); background: rgba(94, 242, 160, 0.045); border-radius: 0 8px 8px 0; font-size: 13.5px; color: var(--muted); }
 
 /* pipeline */
 .pipeline { margin-top: 24px; border-top: 1px solid var(--line-2); padding-top: 22px; }

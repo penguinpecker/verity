@@ -30,6 +30,7 @@ fetch(API + '/api/sources')
     $('src-host').textContent = source.host
     $('src-pair').textContent = source.tag
     $('attested-k').textContent = source.valueLabel
+    if (source.note) { $('src-note').textContent = source.note; $('src-note').hidden = false }
     document.title = 'Verity — ' + source.label
     tick()
     setInterval(tick, 30000)
