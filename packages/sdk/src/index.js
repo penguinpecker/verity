@@ -13,7 +13,7 @@ import {
   AttestorClient,
   DEFAULT_METADATA,
 } from '@reclaimprotocol/attestor-core'
-import { Wallet } from 'ethers'
+import { Wallet, hexlify } from 'ethers'
 
 // The TLS layer needs a platform crypto implementation wired in once, up front.
 setCryptoImplementation(webcryptoCrypto)
@@ -166,6 +166,31 @@ export async function verifyProof(proof, { trustedAttestors = [] } = {}) {
     if (!trustedAttestors.includes(signer)) return false
   }
   return true
+}
+
+/**
+ * Transform a proof into the tuple the on-chain VerityVerifier expects:
+ * { claimInfo: {provider, parameters, context}, signedClaim: {claim, signatures[]} }.
+ * Pass the result straight to verifier.verifyProof(...) / isValidProof(...).
+ * @param {VerityProof} proof
+ */
+export function toOnchainProof(proof) {
+  const res = proof?.raw || proof
+  const c = res.claim
+  const sig = res.signatures?.claimSignature
+  const sigHex = typeof sig === 'string' ? sig : hexlify(sig)
+  return {
+    claimInfo: { provider: c.provider, parameters: c.parameters, context: c.context },
+    signedClaim: {
+      claim: {
+        identifier: c.identifier,
+        owner: c.owner,
+        timestampS: Number(c.timestampS),
+        epoch: Number(c.epoch),
+      },
+      signatures: [sigHex],
+    },
+  }
 }
 
 export default VerityClient

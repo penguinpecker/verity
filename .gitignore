@@ -13,3 +13,10 @@ learnings.txt
 parts/
 horizen/
 scratchpad/
+
+.secrets/
+artifacts/
+packages/contracts/artifacts/
+packages/contracts/cache/
+packages/contracts/test/fixtures/
+typechain-types/

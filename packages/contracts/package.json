@@ -1,0 +1,19 @@
+{
+  "name": "@verity/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "commonjs",
+  "description": "On-chain Verity verifier for the Horizen (ZEN) L3.",
+  "scripts": {
+    "compile": "hardhat compile",
+    "verify:local": "hardhat run scripts/verify-local.js",
+    "deploy:horizen-testnet": "hardhat run scripts/deploy.js --network horizenTestnet",
+    "deploy:horizen": "hardhat run scripts/deploy.js --network horizenMainnet"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-ethers": "^3.0.8",
+    "@openzeppelin/contracts": "^5.1.0",
+    "ethers": "^6.16.0",
+    "hardhat": "^2.22.17"
+  }
+}

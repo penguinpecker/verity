@@ -169,6 +169,32 @@ On boot it prints its **signer address** — copy it into your app's `trustedAtt
 
 ---
 
+## On-chain verification (Horizen)
+
+Verify a proof inside a smart contract on the Horizen (ZEN) L3. The `VerityVerifier`
+contract recovers the attestor signature and checks it against the attestors you trust —
+one call turns a proof into contract-ready calldata:
+
+```js
+import { toOnchainProof } from '@verity/sdk'
+
+const onchain = toOnchainProof(proof)            // { claimInfo, signedClaim }
+const ok = await verifier.isValidProof(onchain)  // true — verified on-chain
+// or gate an action:  require(verifier.verifyProof(onchain))
+```
+
+The contract (`packages/contracts`) is tested against **real** attestor signatures and
+rejects tampered claims and untrusted signers. Deploy it with your attestor's address:
+
+```bash
+cd packages/contracts
+VERITY_ATTESTORS=0xYourAttestor DEPLOYER_PRIVATE_KEY=0x.. npm run deploy:horizen-testnet
+```
+
+Networks: Horizen testnet `2651420`, mainnet `26514` (gas is ETH; fund the deployer via `hub-testnet.horizen.io`).
+
+---
+
 ## Notes & gotchas
 
 - **Responses must be uncompressed.** The proof is over the on-wire (encrypted) bytes, so a gzip/brotli body can't be matched. The SDK sends `Accept-Encoding: identity` automatically; pick sources that honor it (some CDNs ignore it).
@@ -183,8 +209,8 @@ On boot it prints its **signer address** — copy it into your app's `trustedAtt
 | Component | What it is | Status |
 |-----------|-----------|--------|
 | `@verity/sdk` | prove / verify zkTLS proofs | ✅ working |
-| `services/attestor` | the witness + signer (Railway-deployable) | ✅ working (self-host) |
-| On-chain verifier | verify proofs on Horizen (ZEN) L3 via `ecrecover` | 🔜 planned |
+| `services/attestor` | the witness + signer | ✅ working (self-host); Railway deploy |
+| `packages/contracts` | on-chain `VerityVerifier` for Horizen (ZEN) L3 | ✅ working (tested); live deploy pending gas |
 | Data source + demo app | a reference integration | 🔜 planned |
 
 **Chain target:** Horizen (ZEN) L3 on Base — testnet `2651420`, mainnet `26514`. Gas is ETH; ZEN is the ecosystem token.
