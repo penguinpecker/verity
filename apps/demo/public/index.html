@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Verity — prove real data, verify on-chain</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;700&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div class="grain" aria-hidden="true"></div>
+  <div class="glow" aria-hidden="true"></div>
+
+  <header class="top">
+    <div class="mark">◈ VERITY</div>
+    <nav class="links">
+      <a id="nav-attestor" href="#" target="_blank" rel="noopener">attestor</a>
+      <a id="nav-contract" href="#" target="_blank" rel="noopener">contract ↗</a>
+      <a href="https://github.com/penguinpecker/verity" target="_blank" rel="noopener">github ↗</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero">
+      <p class="eyebrow reveal" style="--d:0">zkTLS · Horizen mainnet</p>
+      <h1 class="reveal" style="--d:1">Prove real data.<br />Verify it <em>on-chain.</em></h1>
+      <p class="lede reveal" style="--d:2">
+        A live value is fetched through a Verity attestor, sealed with a zero-knowledge proof of the
+        TLS response, and checked by a contract on Horizen — no oracle, no trust in this page.
+      </p>
+    </section>
+
+    <section class="panel reveal" style="--d:3">
+      <div class="panel-head">
+        <div class="src">
+          <span class="src-label">source</span>
+          <span class="src-host">api.kraken.com</span>
+          <span class="src-pair">ETH / USD</span>
+        </div>
+        <div class="live">
+          <span class="live-dot"></span>
+          <span class="live-label">live</span>
+          <span id="live-price" class="live-price">—</span>
+        </div>
+      </div>
+
+      <div class="pipeline" id="pipeline" hidden>
+        <ol class="steps" id="steps"></ol>
+      </div>
+
+      <div class="result" id="result" hidden>
+        <div class="attested">
+          <div class="attested-k">attested price</div>
+          <div class="attested-v" id="attested-price">—</div>
+        </div>
+        <dl class="facts">
+          <div><dt>attestor</dt><dd id="fact-attestor" class="mono">—</dd></div>
+          <div><dt>claim id</dt><dd id="fact-id" class="mono">—</dd></div>
+          <div><dt>network</dt><dd class="mono">Horizen mainnet · 26514</dd></div>
+        </dl>
+      </div>
+
+      <div class="seal" id="seal" hidden>
+        <div class="seal-badge">
+          <span class="seal-check">✓</span>
+          <div class="seal-text">
+            <strong>VERIFIED</strong>
+            <span>on Horizen mainnet</span>
+          </div>
+        </div>
+        <a id="seal-link" class="seal-link mono" href="#" target="_blank" rel="noopener">view verifier contract ↗</a>
+      </div>
+
+      <button id="run" class="run">
+        <span class="run-label">Generate proof &amp; verify on-chain</span>
+        <span class="run-sub">~20s · real zkTLS proof</span>
+      </button>
+      <p class="err" id="err" hidden></p>
+    </section>
+
+    <section class="how">
+      <div class="how-col reveal" style="--d:4">
+        <span class="how-n">01</span>
+        <h3>Witnessed fetch</h3>
+        <p>The request runs through the attestor, which relays only ciphertext and records the TLS transcript.</p>
+      </div>
+      <div class="how-col reveal" style="--d:5">
+        <span class="how-n">02</span>
+        <h3>Zero-knowledge proof</h3>
+        <p>The client proves the response decrypts to the revealed value — the key and everything else stay hidden.</p>
+      </div>
+      <div class="how-col reveal" style="--d:6">
+        <span class="how-n">03</span>
+        <h3>On-chain check</h3>
+        <p>The attestor signs the claim; the Horizen contract recovers the signature and confirms it on-chain.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <span>Verity</span>
+    <span class="mono" id="foot-contract">—</span>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/ethers@6.16.0/dist/ethers.umd.min.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>

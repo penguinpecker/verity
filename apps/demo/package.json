@@ -1,0 +1,14 @@
+{
+  "name": "@verity/demo",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Verity demo — prove a live ETH price (Kraken) with zkTLS and verify it on Horizen mainnet.",
+  "scripts": {
+    "dev": "node server.js",
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2"
+  }
+}
