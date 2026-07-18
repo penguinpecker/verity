@@ -63,9 +63,12 @@ async function startSession(ws, flow) {
   const s = { context, page, cdp, captured, flow, proving: false }
   sessions.set(ws, s)
 
-  await page.goto(flow.loginUrl, { waitUntil: 'domcontentloaded' }).catch(() => {})
+  // Stream + signal ready BEFORE navigating: the real login page can be slow to
+  // load from a datacenter, so the user watches it come up live instead of staring
+  // at a blank pane while we await goto.
   await cdp.send('Page.startScreencast', { format: 'jpeg', quality: 55, maxWidth: VIEWPORT.width, maxHeight: VIEWPORT.height, everyNthFrame: 1 })
-  ws.send(JSON.stringify({ type: 'ready', viewport: VIEWPORT, url: page.url() }))
+  ws.send(JSON.stringify({ type: 'ready', viewport: VIEWPORT, url: flow.loginUrl }))
+  page.goto(flow.loginUrl, { waitUntil: 'commit', timeout: 45000 }).catch(() => {})
 }
 
 // map normalized (0..1) client coords → viewport pixels
