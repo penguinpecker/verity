@@ -1,0 +1,17 @@
+{
+  "name": "@verity/remote-browser",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Verity hosted-browser proving service — log into a real source, prove a yes/no predicate, no extension, no API keys.",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "@reclaimprotocol/attestor-core": "5.0.7",
+    "ethers": "^6.17.0",
+    "express": "^4.22.2",
+    "playwright": "^1.61.1",
+    "ws": "^8.21.1"
+  }
+}

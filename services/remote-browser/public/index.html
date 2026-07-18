@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Verity — prove it, reveal nothing</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,500&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<!-- ================= PICKER ================= -->
+<main id="picker">
+  <header class="top">
+    <div class="brand">verity<span class="dot">.</span></div>
+    <a class="ghost" id="contract-link" target="_blank" rel="noopener">on-chain verifier ↗</a>
+  </header>
+
+  <section class="hero">
+    <p class="eyebrow">HOSTED-BROWSER zkTLS · no extension · no API keys</p>
+    <h1>Prove a fact about<br><em>yourself.</em> Reveal nothing else.</h1>
+    <p class="lede">Log into a source you already have — inside a browser Verity hosts. We witness the encrypted response and hand the app a single <b>yes / no</b>. Your credentials, your OTP, your date of birth never leave the session, never reach the app, never touch a server.</p>
+  </section>
+
+  <section class="cards" id="flow-cards"><!-- injected --></section>
+
+  <section class="how">
+    <div class="step"><span>01</span><p>You log into the real portal in a browser we host — your own credentials, your own OTP.</p></div>
+    <div class="step"><span>02</span><p>Verity's attestor witnesses the encrypted response over TLS. The session cookie is redacted.</p></div>
+    <div class="step"><span>03</span><p>A predicate proof (“age ≥ 18”) is signed and recorded on Horizen mainnet. The number itself is never revealed.</p></div>
+  </section>
+  <footer class="foot">Verifier <code id="foot-contract">—</code> · Horizen mainnet</footer>
+</main>
+
+<!-- ================= STAGE ================= -->
+<main id="stage" hidden>
+  <header class="top">
+    <button class="ghost" id="back-home">← all checks</button>
+    <div class="stage-title"><span id="stage-region"></span> <b id="stage-name"></b></div>
+    <a class="ghost" id="contract-link2" target="_blank" rel="noopener">verifier ↗</a>
+  </header>
+
+  <div class="split">
+    <!-- live hosted browser -->
+    <section class="browser">
+      <div class="chrome">
+        <button class="cbtn" id="nav-back" title="Back">‹</button>
+        <div class="omni" id="omni">—</div>
+        <span class="secure" id="secure-badge">hosted by verity · isolated</span>
+      </div>
+      <div class="screen-wrap" id="screen-wrap">
+        <img id="screen" alt="hosted browser" draggable="false" />
+        <div class="screen-overlay" id="screen-overlay"><div class="spin"></div><p>starting a private browser…</p></div>
+      </div>
+      <p class="hint" id="flow-hint"></p>
+    </section>
+
+    <!-- proof panel -->
+    <aside class="panel">
+      <div class="q-card">
+        <p class="q-label">THE APP ASKS</p>
+        <h2 id="p-question">—</h2>
+        <div class="reveal-row"><span class="tag ok" id="p-reveals">—</span></div>
+        <p class="hide-line">stays hidden: <span id="p-hides">—</span></p>
+      </div>
+
+      <button class="prove" id="prove-btn"><span class="pl">Prove it</span><span class="ps">witness · sign · record on-chain</span></button>
+
+      <ol class="steps" id="prove-steps" hidden></ol>
+
+      <div class="verdict" id="verdict" hidden>
+        <div class="verdict-badge" id="verdict-badge">YES</div>
+        <p class="verdict-sub" id="verdict-sub"></p>
+        <dl class="facts">
+          <div><dt>attestor</dt><dd id="f-attestor">—</dd></div>
+          <div><dt>proof id</dt><dd id="f-id">—</dd></div>
+          <div><dt>on-chain tx</dt><dd id="f-tx">—</dd></div>
+        </dl>
+      </div>
+      <p class="err" id="prove-err" hidden></p>
+    </aside>
+  </div>
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>
