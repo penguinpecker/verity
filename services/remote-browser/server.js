@@ -30,14 +30,26 @@ const relayer = process.env.RELAYER_PRIVATE_KEY
   : null
 
 // ---- Browser (one instance, one isolated context per session) ---------------
+// Primary path is the on-device extension (see apps/extension) — the user's own
+// browser handles the login, so the hosted browser here is only for sources that
+// serve a datacenter browser directly. Locale/timezone are matched to the source's
+// region so the portal renders in the right locale.
 const browser = await chromium.launch({ headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage'] })
 const sessions = new Map()
 
 const jsonParse = (s) => { try { return JSON.parse(s) } catch { return null } }
 
+const REGION = {
+  IN: { locale: 'en-IN', timezoneId: 'Asia/Kolkata' },
+  US: { locale: 'en-US', timezoneId: 'America/New_York' },
+}
+
 async function startSession(ws, flow) {
-  const context = await browser.newContext({ viewport: VIEWPORT, userAgent:
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36' })
+  const r = REGION[flow.region] || REGION.US
+  const context = await browser.newContext({
+    viewport: VIEWPORT, locale: r.locale, timezoneId: r.timezoneId,
+    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36',
+  })
   const page = await context.newPage()
   const captured = [] // { url, method, reqHeaders, body }
 
@@ -156,9 +168,49 @@ async function destroy(ws) {
 
 // ---- HTTP + WS wiring --------------------------------------------------------
 const app = express()
-app.use((req, res, next) => { res.set('Access-Control-Allow-Origin', '*'); next() })
+app.use((req, res, next) => {
+  res.set('Access-Control-Allow-Origin', '*')
+  res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+  res.set('Access-Control-Allow-Headers', 'Content-Type')
+  if (req.method === 'OPTIONS') return res.sendStatus(204)
+  next()
+})
+app.use(express.json({ limit: '2mb' }))
 app.get('/api/flows', (_req, res) => res.json(flowList()))
 app.get('/api/health', (_req, res) => res.json({ ok: true, sessions: sessions.size, relayer: !!relayer }))
+
+// On-device capture endpoint: the Verity EXTENSION captures the user's session in
+// their OWN browser (residential IP, real fingerprint — no bot wall) and posts the
+// authenticated endpoint + session cookie here. We witness that request through the
+// attestor with the cookie redacted and prove the age predicate (no DOB revealed).
+app.post('/api/prove-session', async (req, res) => {
+  const { flow: flowId, cookieStr, url, headers } = req.body || {}
+  const flow = getFlow(flowId)
+  if (!cookieStr || !url) return res.status(400).json({ error: 'cookieStr and url are required' })
+  const { maxBirthYear, matchers } = buildAgePredicate(flow.minAge)
+  const secretHeaders = {}
+  if (headers && typeof headers === 'object') for (const k of Object.keys(headers)) if (/^(authorization|x-.*|.*-token)$/i.test(k)) secretHeaders[k] = headers[k]
+  const verity = new VerityClient()
+  try {
+    let proof = null
+    for (const m of matchers) {
+      try { proof = await verity.prove({ url, match: m, secretParams: { cookieStr, headers: secretHeaders } }); break }
+      catch { /* wrong DOB format or predicate not met — try the next serialisation */ }
+    }
+    if (!proof) return res.json({ pass: false, question: flow.question, reason: `Age does not clear ${flow.minAge}+ (born after ${maxBirthYear}), or the profile field could not be witnessed.` })
+    let tx = null, block = null
+    if (relayer) {
+      const contract = new Contract(VERIFIER, VERIFY_ABI, relayer)
+      const t = await contract.verifyAndRecord(toOnchainProof(proof)); const rc = await t.wait()
+      tx = t.hash; block = Number(rc.blockNumber)
+    }
+    res.json({ pass: true, question: flow.question, reveals: flow.reveals, hides: flow.hides,
+      attestor: proof.attestor, identifier: proof.identifier, tx, block, explorer: tx ? `${EXPLORER}/tx/${tx}` : null })
+  } catch (e) {
+    res.status(502).json({ error: String(e?.shortMessage || e?.message || e) })
+  } finally { await verity.close() }
+})
+
 app.use(express.static(path.join(__dirname, 'public')))
 
 const server = http.createServer(app)

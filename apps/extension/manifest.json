@@ -1,0 +1,27 @@
+{
+  "manifest_version": 3,
+  "name": "Verity — prove it, reveal nothing",
+  "version": "0.1.0",
+  "description": "Prove a fact about yourself (age ≥ 18/21) from a site you already log into — reveal nothing else. On-device zkTLS, no credentials shared.",
+  "action": { "default_popup": "popup.html", "default_title": "Verity" },
+  "permissions": ["cookies", "activeTab", "tabs", "storage"],
+  "host_permissions": [
+    "https://*.uidai.gov.in/*",
+    "https://*.id.me/*",
+    "https://verity-browser-production.up.railway.app/*"
+  ],
+  "background": { "service_worker": "background.js" },
+  "content_scripts": [
+    {
+      "matches": ["https://*.uidai.gov.in/*", "https://*.id.me/*"],
+      "js": ["hook.js"],
+      "world": "MAIN",
+      "run_at": "document_start"
+    },
+    {
+      "matches": ["https://*.uidai.gov.in/*", "https://*.id.me/*"],
+      "js": ["bridge.js"],
+      "run_at": "document_start"
+    }
+  ]
+}

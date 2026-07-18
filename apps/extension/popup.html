@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+<header class="top"><span class="brand">verity<b>.</b></span><span class="tls">on-device zkTLS</span></header>
+
+<!-- not on a supported portal -->
+<section id="off" hidden>
+  <p class="lead">Prove a fact about yourself — reveal nothing else. Open the portal you already have an account with:</p>
+  <button class="portal" data-flow="aadhaar-age"><b>🇮🇳 Aadhaar age check</b><span>myAadhaar · UIDAI</span></button>
+  <button class="portal" data-flow="us-age-idme"><b>🇺🇸 US age check</b><span>ID.me verified identity</span></button>
+</section>
+
+<!-- on a supported portal -->
+<section id="on" hidden>
+  <div class="flow"><span class="region" id="region"></span><b id="title"></b></div>
+  <div class="q">“<span id="question"></span>”</div>
+  <div class="rev">✓ reveals only <span id="reveals"></span></div>
+  <div class="hide">stays hidden: <span id="hides"></span></div>
+
+  <div class="status" id="status"><span class="dot" id="status-dot"></span><span id="status-text">Log in, then open your profile…</span></div>
+
+  <button class="prove" id="prove" disabled>Prove it</button>
+
+  <div class="result" id="result" hidden>
+    <div class="verdict" id="verdict">YES</div>
+    <p class="vsub" id="vsub"></p>
+    <div class="facts">
+      <div><span>attestor</span><code id="f-att">—</code></div>
+      <div><span>on-chain</span><code id="f-tx">—</code></div>
+    </div>
+  </div>
+  <p class="err" id="err" hidden></p>
+</section>
+
+<footer class="foot">Login stays in your browser · credentials never shared</footer>
+<script src="popup.js"></script>
+</body>
+</html>
