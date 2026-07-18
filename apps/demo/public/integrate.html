@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Verity — verify your users with Aadhaar</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;700&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div class="grain" aria-hidden="true"></div>
+  <div class="glow" aria-hidden="true"></div>
+
+  <header class="top">
+    <a class="mark" href="/">◈ VERITY</a>
+    <nav class="links">
+      <a href="/">← data sources</a>
+      <a id="nav-contract" href="#" target="_blank" rel="noopener">contract ↗</a>
+      <a href="https://github.com/penguinpecker/verity" target="_blank" rel="noopener">github ↗</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero">
+      <p class="eyebrow reveal" style="--d:0">SDK · identity claims · Aadhaar</p>
+      <h1 class="reveal" style="--d:1">Ask for proof,<br />not <em>documents.</em></h1>
+      <p class="lede reveal" style="--d:2">
+        Your app needs “18+”, a name, a birth date — not a copy of anyone's Aadhaar.
+        Request claims with the SDK; your user proves them from
+        <strong>myAadhaar, in their own browser</strong>; you receive attestor-signed
+        answers with an on-chain record. Credentials and OTP never touch you — or Verity.
+      </p>
+    </section>
+
+    <!-- ————— live integration demo ————— -->
+    <section class="panel reveal" style="--d:3">
+      <div class="panel-head">
+        <div class="src">
+          <span class="src-label">example app</span>
+          <span class="src-host">age-gated checkout</span>
+          <span class="src-pair">myAadhaar · UIDAI</span>
+        </div>
+        <div class="live">
+          <span class="live-dot" id="ext-dot"></span>
+          <span class="live-label">extension</span>
+          <span class="live-price" id="ext-state">checking…</span>
+        </div>
+      </div>
+
+      <div class="claims" id="claims">
+        <div class="claims-label">requested claims <span>— the user sees and approves exactly this list</span></div>
+        <label class="claim">
+          <input type="checkbox" checked disabled />
+          <span class="claim-name mono">age</span>
+          <span class="claim-desc">is this person ≥ 18 — a yes/no predicate, <b>date of birth never revealed</b></span>
+          <span class="claim-kind">predicate</span>
+        </label>
+        <label class="claim">
+          <input type="checkbox" id="claim-name" checked />
+          <span class="claim-name mono">name</span>
+          <span class="claim-desc">name on the Aadhaar profile, selectively disclosed</span>
+          <span class="claim-kind reveal-kind">disclosure</span>
+        </label>
+        <label class="claim">
+          <input type="checkbox" id="claim-dob" />
+          <span class="claim-name mono">dob</span>
+          <span class="claim-desc">date of birth, selectively disclosed — only if you really need it</span>
+          <span class="claim-kind reveal-kind">disclosure</span>
+        </label>
+      </div>
+
+      <div class="ext-missing" id="ext-missing" hidden>
+        <b>Verity extension not detected.</b> This flow runs the login on <i>your</i> device — it needs the extension:
+        <ol>
+          <li>Clone <a href="https://github.com/penguinpecker/verity" target="_blank" rel="noopener">github.com/penguinpecker/verity</a></li>
+          <li>Open <span class="mono">chrome://extensions</span> → enable Developer mode → <b>Load unpacked</b> → <span class="mono">apps/extension</span></li>
+          <li>Reload this page</li>
+        </ol>
+      </div>
+
+      <div class="pipeline" id="pipeline" hidden><ol class="steps" id="steps"></ol></div>
+
+      <div class="result" id="result" hidden>
+        <div class="attested">
+          <div class="attested-k">is this person 18 or older?</div>
+          <div class="attested-v" id="verdict">—</div>
+          <div class="attested-ctx" id="verdict-ctx"></div>
+        </div>
+        <dl class="facts" id="facts"></dl>
+      </div>
+
+      <div class="payload" id="payload" hidden>
+        <div class="payload-label">what your backend receives</div>
+        <pre class="codeblock mono" id="payload-json"></pre>
+      </div>
+
+      <div class="seal" id="seal" hidden>
+        <div class="seal-badge">
+          <span class="seal-check">✓</span>
+          <div class="seal-text"><strong>VERIFIED</strong><span>age gate recorded on Horizen mainnet</span></div>
+        </div>
+        <a id="seal-link" class="seal-link mono" href="#" target="_blank" rel="noopener">view transaction ↗</a>
+      </div>
+
+      <button id="run" class="run">
+        <span class="run-label">Verify with Verity</span>
+        <span class="run-sub">opens myAadhaar · you log in · proof runs automatically</span>
+      </button>
+      <p class="err" id="err" hidden></p>
+    </section>
+
+    <!-- ————— the integration ————— -->
+    <section class="integ reveal" style="--d:4">
+      <div class="integ-head">
+        <span class="sources-label">the entire integration</span>
+        <span class="sources-hint">this page runs exactly this call</span>
+      </div>
+
+      <div class="codecard">
+        <div class="codecard-title mono">frontend — request claims</div>
+<pre class="codeblock mono" id="snippet">import { requestIdentity } from '@verity/sdk/browser'
+
+const res = await requestIdentity({
+  flow: 'aadhaar-age',
+  claims: ['age', 'name'],
+})
+
+res.pass          // true  — age gate cleared
+res.claims        // { age_over_18, name, … } attestor-signed
+res.proofs[0].tx  // recorded on Horizen mainnet</pre>
+      </div>
+
+      <div class="codecard">
+        <div class="codecard-title mono">backend — trust it without trusting the browser</div>
+<pre class="codeblock mono">import { verifyProof } from '@verity/sdk'
+
+// re-check the attestor signature server-side
+await verifyProof(proof, {
+  trustedAttestors: ['0x710FC3548Ed4F77A8Cffa179639866798Deb8bd1'],
+}) // → true
+
+// or read the chain: VerityVerifier.isValidProof(proof)
+// 0x85804b684Ce86AC1773950161886741862EE9DBB · Horizen 26514</pre>
+      </div>
+    </section>
+
+    <section class="how">
+      <div class="how-col reveal" style="--d:5"><span class="how-n">01</span><h3>Login stays on-device</h3><p>The user signs into myAadhaar in their own browser — their IP, their fingerprint, their OTP. No hosted browser, no credential sharing, no bot walls.</p></div>
+      <div class="how-col reveal" style="--d:6"><span class="how-n">02</span><h3>Witness, don't collect</h3><p>The attestor re-fetches the profile over TLS with the session cookie redacted. Age is proven as a predicate — the DOB bytes stay hidden unless the user approves disclosure.</p></div>
+      <div class="how-col reveal" style="--d:7"><span class="how-n">03</span><h3>Signed &amp; recorded</h3><p>Each claim carries an attestor signature your backend can re-verify, and the age gate is recorded by a real transaction on the Horizen-mainnet verifier.</p></div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <span>Verity</span>
+    <span class="mono" id="foot-contract">—</span>
+  </footer>
+
+  <script src="/integrate.js"></script>
+</body>
+</html>

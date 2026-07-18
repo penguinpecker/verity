@@ -26,6 +26,22 @@ proxy, and your credentials/OTP/DOB are never shared with the app.
 5. Click **Prove it** → you get YES/NO + an on-chain tx link. The app only ever sees the
    boolean.
 
+## For integrating apps (window.verity)
+On integrating origins (the Verity demo site, localhost) the extension injects a
+`window.verity` provider — the thing `@verity/sdk/browser` wraps:
+
+```js
+const res = await window.verity.request({ flow: 'aadhaar-age', claims: ['age', 'name', 'dob'] })
+res.claims   // { age_over_18: true, name: '…', dob: '…' }  — attestor-signed
+```
+
+The extension opens the portal, the user logs in on-device, and the proof runs
+automatically when the profile response appears; the promise resolves with the
+claims and the on-chain tx of the age gate. `'age'` is always a yes/no predicate;
+`'name'`/`'dob'` are selective disclosures the user sees in the request and can
+decline by simply not completing the login. See `/integrate.html` on the demo site
+for the live example.
+
 ## Honest caveat (being tested)
 zkTLS witnesses the request through the attestor, so the *proof fetch* originates from the
 attestor's IP even though your login was on your own IP. Portals that gate **authenticated

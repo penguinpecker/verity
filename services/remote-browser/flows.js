@@ -24,6 +24,17 @@ export const FLOWS = {
     question: 'Is this person 18 or older?',
     reveals: 'age ≥ 18  (a single yes / no)',
     hides: 'date of birth, Aadhaar number, name, address, photo, gender',
+    // Selective-disclosure matchers (used ONLY when the app requests — and the user
+    // approves — revealing a field). Each variant is tried until the attestor can
+    // witness one against the real profile response; named group = revealed value.
+    fields: {
+      name: [
+        '"(?:name|fullName|full_name|residentName|resident_name|localName)"\\s*:\\s*"(?<name>[^"\\\\]{2,80})"',
+      ],
+      dob: [
+        '"(?:dob|dateOfBirth|date_of_birth|dateOfbirth|birth_date|birthDate)"\\s*:\\s*"(?<dob>[0-9]{1,4}[-/][0-9]{1,2}[-/][0-9]{1,4})"',
+      ],
+    },
   },
 
   'us-age-idme': {
@@ -40,6 +51,16 @@ export const FLOWS = {
     question: 'Is this person 21 or older?',
     reveals: 'age ≥ 21  (a single yes / no)',
     hides: 'date of birth, SSN, legal name, address, document images',
+    fields: {
+      name: [
+        '"(?:first_?name|fname)"\\s*:\\s*"(?<name>[^"\\\\]{2,80})"',
+        '"(?:name|fullName|full_name|legal_name|legalName)"\\s*:\\s*"(?<name>[^"\\\\]{2,80})"',
+      ],
+      dob: [
+        '"(?:birth_date|birthDate|dob|dateOfBirth)"\\s*:\\s*"(?<dob>[0-9]{4}-[0-9]{2}-[0-9]{2})"',
+        '"(?:birth_date|birthDate|dob|dateOfBirth)"\\s*:\\s*"(?<dob>[0-9]{1,2}/[0-9]{1,2}/[0-9]{4})"',
+      ],
+    },
   },
 }
 

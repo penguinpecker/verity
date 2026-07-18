@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Verity — prove it, reveal nothing",
-  "version": "0.1.0",
-  "description": "Prove a fact about yourself (age ≥ 18/21) from a site you already log into — reveal nothing else. On-device zkTLS, no credentials shared.",
+  "version": "0.2.0",
+  "description": "Prove facts about yourself (age, name, DOB) from a site you already log into — reveal only what you approve. On-device zkTLS, no credentials shared.",
   "action": { "default_popup": "popup.html", "default_title": "Verity" },
   "permissions": ["cookies", "activeTab", "tabs", "storage"],
   "host_permissions": [
@@ -21,6 +21,25 @@
     {
       "matches": ["https://*.uidai.gov.in/*", "https://*.id.me/*"],
       "js": ["bridge.js"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "https://verity-demo-penguinpeckers-projects.vercel.app/*",
+        "http://localhost/*",
+        "http://127.0.0.1/*"
+      ],
+      "js": ["provider.js"],
+      "world": "MAIN",
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "https://verity-demo-penguinpeckers-projects.vercel.app/*",
+        "http://localhost/*",
+        "http://127.0.0.1/*"
+      ],
+      "js": ["page-bridge.js"],
       "run_at": "document_start"
     }
   ]

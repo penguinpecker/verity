@@ -177,6 +177,65 @@ h1 em { font-style: italic; color: var(--mint); }
 .card:hover .card-go { color: var(--mint); }
 @media (max-width: 720px) { .grid { grid-template-columns: 1fr; } }
 
+/* integrate — claims picker */
+.claims { margin-top: 24px; border-top: 1px solid var(--line-2); padding-top: 20px; display: flex; flex-direction: column; gap: 8px; }
+.claims-label { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--dim); margin-bottom: 6px; }
+.claims-label span { text-transform: none; letter-spacing: 0.02em; color: var(--dim); }
+.claim {
+  display: grid; grid-template-columns: 18px 66px 1fr auto; align-items: center; gap: 14px;
+  padding: 12px 14px; border: 1px solid var(--line-2); border-radius: 10px; cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+.claim:hover { border-color: var(--line); background: rgba(255, 255, 255, 0.015); }
+.claim input { accent-color: var(--mint); width: 15px; height: 15px; cursor: pointer; }
+.claim input:disabled { opacity: 0.7; }
+.claim-name { font-size: 13.5px; font-weight: 700; color: var(--text); }
+.claim-desc { font-size: 13px; color: var(--muted); }
+.claim-desc b { color: var(--mint); font-weight: 600; }
+.claim-kind {
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--mint); border: 1px solid var(--mint-dim); border-radius: 5px; padding: 3px 8px; white-space: nowrap;
+}
+.claim-kind.reveal-kind { color: var(--amber); border-color: rgba(244, 195, 78, 0.25); }
+
+/* integrate — extension prompt */
+.ext-missing {
+  margin-top: 20px; padding: 15px 17px; border-left: 2px solid var(--amber);
+  background: rgba(244, 195, 78, 0.05); border-radius: 0 8px 8px 0; font-size: 13.5px; color: var(--muted);
+}
+.ext-missing b { color: var(--amber); }
+.ext-missing ol { margin: 10px 0 2px 18px; display: flex; flex-direction: column; gap: 5px; }
+.ext-missing a { color: var(--mint); text-decoration: none; }
+.ext-missing a:hover { text-decoration: underline; }
+
+/* integrate — verdict + chips */
+.attested-v.yes { color: var(--mint); }
+.attested-v.no { color: var(--red); }
+.chip {
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.12em; padding: 3px 9px;
+  border-radius: 5px; border: 1px solid var(--mint-dim); color: var(--mint);
+}
+.chip.no { color: var(--red); border-color: rgba(255, 107, 107, 0.3); }
+.chip.miss { color: var(--dim); border-color: var(--line); letter-spacing: 0.04em; }
+
+/* integrate — payload + code */
+.payload { margin-top: 24px; border-top: 1px solid var(--line-2); padding-top: 20px; }
+.payload-label { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--dim); margin-bottom: 12px; }
+.codeblock {
+  font-size: 12.5px; line-height: 1.75; color: var(--text); background: #05070a;
+  border: 1px solid var(--line-2); border-radius: 10px; padding: 18px 20px;
+  overflow-x: auto; white-space: pre; tab-size: 2;
+}
+.integ { margin-top: 64px; }
+.integ-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 18px; gap: 12px; flex-wrap: wrap; }
+.integ .codecard + .codecard { margin-top: 14px; }
+.codecard-title { font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--mint); margin-bottom: 10px; }
+
+@media (max-width: 720px) {
+  .claim { grid-template-columns: 18px 1fr auto; }
+  .claim-desc { grid-column: 2 / -1; grid-row: 2; }
+}
+
 /* footer */
 .foot { max-width: 1080px; margin: 0 auto; padding: 34px 32px 50px; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--line-2); }
 .foot span { font-family: var(--font-mono); font-size: 12px; color: var(--dim); letter-spacing: 0.06em; }

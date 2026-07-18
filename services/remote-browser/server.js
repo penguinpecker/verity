@@ -182,30 +182,83 @@ app.get('/api/health', (_req, res) => res.json({ ok: true, sessions: sessions.si
 // On-device capture endpoint: the Verity EXTENSION captures the user's session in
 // their OWN browser (residential IP, real fingerprint — no bot wall) and posts the
 // authenticated endpoint + session cookie here. We witness that request through the
-// attestor with the cookie redacted and prove the age predicate (no DOB revealed).
+// attestor with the cookie redacted.
+//
+// `claims` selects what the requesting app receives (the user approves the list
+// before the extension sends it):
+//   'age'  → the no-capture age predicate: a single yes/no, DOB never revealed
+//   'name' → the profile name, selectively disclosed via a capture group
+//   'dob'  → the date of birth, selectively disclosed via a capture group
+// Every claim is a separate real zkTLS proof over the same authenticated endpoint.
+// The age proof (the gate) is the one recorded on-chain.
+const CLAIM_ALIASES = { age: 'age', age_over_18: 'age', age_over_21: 'age', name: 'name', dob: 'dob' }
+
 app.post('/api/prove-session', async (req, res) => {
-  const { flow: flowId, cookieStr, url, headers } = req.body || {}
+  const { flow: flowId, cookieStr, url, headers, claims } = req.body || {}
   const flow = getFlow(flowId)
   if (!cookieStr || !url) return res.status(400).json({ error: 'cookieStr and url are required' })
-  const { maxBirthYear, matchers } = buildAgePredicate(flow.minAge)
+  const want = [...new Set((Array.isArray(claims) && claims.length ? claims : ['age'])
+    .map((c) => CLAIM_ALIASES[String(c).toLowerCase()]).filter(Boolean))]
+  if (!want.length) return res.status(400).json({ error: `unsupported claims — use any of: age, name, dob` })
+
   const secretHeaders = {}
   if (headers && typeof headers === 'object') for (const k of Object.keys(headers)) if (/^(authorization|x-.*|.*-token)$/i.test(k)) secretHeaders[k] = headers[k]
+  const secretParams = { cookieStr, headers: secretHeaders }
+  const ageKey = `age_over_${flow.minAge}`
+
   const verity = new VerityClient()
+  const tryMatchers = async (list) => {
+    for (const m of list) {
+      try { return await verity.prove({ url, match: m, secretParams }) }
+      catch { /* serialisation mismatch or predicate not met — try the next */ }
+    }
+    return null
+  }
+
   try {
-    let proof = null
-    for (const m of matchers) {
-      try { proof = await verity.prove({ url, match: m, secretParams: { cookieStr, headers: secretHeaders } }); break }
-      catch { /* wrong DOB format or predicate not met — try the next serialisation */ }
+    const out = { claims: {}, proofs: [], missing: [] }
+    let recordable = null // the proof that gets the on-chain tx (the age gate, if requested)
+
+    if (want.includes('age')) {
+      const { maxBirthYear, matchers } = buildAgePredicate(flow.minAge)
+      const proof = await tryMatchers(matchers)
+      if (!proof) {
+        return res.json({ pass: false, question: flow.question, claims: {}, proofs: [], missing: want,
+          reason: `Age does not clear ${flow.minAge}+ (born after ${maxBirthYear}), or the profile field could not be witnessed.` })
+      }
+      out.claims[ageKey] = true
+      out.proofs.push({ claim: ageKey, attestor: proof.attestor, identifier: proof.identifier })
+      recordable = proof
     }
-    if (!proof) return res.json({ pass: false, question: flow.question, reason: `Age does not clear ${flow.minAge}+ (born after ${maxBirthYear}), or the profile field could not be witnessed.` })
+
+    for (const field of want.filter((w) => w !== 'age')) {
+      const proof = await tryMatchers(flow.fields?.[field] || [])
+      if (!proof) { out.missing.push(field); continue }
+      out.claims[field] = proof.data[field]
+      out.proofs.push({ claim: field, attestor: proof.attestor, identifier: proof.identifier })
+      if (!recordable) recordable = proof
+    }
+
+    if (!out.proofs.length) {
+      return res.json({ pass: false, question: flow.question, claims: {}, proofs: [], missing: out.missing,
+        reason: 'None of the requested fields could be witnessed from the profile response.' })
+    }
+
     let tx = null, block = null
-    if (relayer) {
+    if (relayer && recordable) {
       const contract = new Contract(VERIFIER, VERIFY_ABI, relayer)
-      const t = await contract.verifyAndRecord(toOnchainProof(proof)); const rc = await t.wait()
+      const t = await contract.verifyAndRecord(toOnchainProof(recordable)); const rc = await t.wait()
       tx = t.hash; block = Number(rc.blockNumber)
+      const rec = out.proofs[0]; rec.tx = tx; rec.block = block; rec.explorer = `${EXPLORER}/tx/${tx}`
     }
-    res.json({ pass: true, question: flow.question, reveals: flow.reveals, hides: flow.hides,
-      attestor: proof.attestor, identifier: proof.identifier, tx, block, explorer: tx ? `${EXPLORER}/tx/${tx}` : null })
+
+    // `pass` keeps the original gate semantics (age cleared) for existing callers;
+    // top-level attestor/identifier/tx mirror the recorded proof for the popup UI.
+    res.json({ pass: want.includes('age') ? out.claims[ageKey] === true : out.proofs.length > 0,
+      question: flow.question, reveals: flow.reveals, hides: flow.hides,
+      claims: out.claims, proofs: out.proofs, missing: out.missing,
+      attestor: out.proofs[0].attestor, identifier: out.proofs[0].identifier,
+      tx, block, explorer: tx ? `${EXPLORER}/tx/${tx}` : null })
   } catch (e) {
     res.status(502).json({ error: String(e?.shortMessage || e?.message || e) })
   } finally { await verity.close() }

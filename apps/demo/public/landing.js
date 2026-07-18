@@ -28,5 +28,21 @@ fetch(API + '/api/sources')
         .then((d) => { const el = a.querySelector('.card-cur'); if (el && d.headline) el.textContent = d.sub || d.headline })
         .catch(() => {})
     })
+    addIdentityCard(list.length)
   })
-  .catch(() => { $('grid').innerHTML = '<p class="grid-loading mono">could not reach the prover</p>' })
+  .catch(() => { $('grid').innerHTML = '<p class="grid-loading mono">could not reach the prover</p>'; addIdentityCard(0) })
+
+// Identity claims (Aadhaar) — the SDK integration flow, not a public feed, so it
+// renders whether or not the prover API is reachable.
+function addIdentityCard(after) {
+  const id = document.createElement('a')
+  id.className = 'card reveal'
+  id.style.setProperty('--d', 4 + after)
+  id.href = '/integrate.html'
+  id.innerHTML = `
+    <div class="card-tag mono">identity · aadhaar</div>
+    <div class="card-label">Verify your users</div>
+    <div class="card-cur mono">age ≥ 18 · name · dob — via the SDK</div>
+    <div class="card-go mono">integrate →</div>`
+  $('grid').appendChild(id)
+}
