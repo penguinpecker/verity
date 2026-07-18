@@ -26,6 +26,7 @@
     {
       "matches": [
         "https://verity-demo-penguinpeckers-projects.vercel.app/*",
+        "https://verity-demo-phi.vercel.app/*",
         "http://localhost/*",
         "http://127.0.0.1/*"
       ],
@@ -36,6 +37,7 @@
     {
       "matches": [
         "https://verity-demo-penguinpeckers-projects.vercel.app/*",
+        "https://verity-demo-phi.vercel.app/*",
         "http://localhost/*",
         "http://127.0.0.1/*"
       ],
