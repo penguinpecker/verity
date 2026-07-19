@@ -16,8 +16,11 @@ $('foot-contract').textContent = VERIFIER
 
 // ---- hosted-browser reachability + egress status ----------------------------
 fetch(`${HOSTED}/api/health`).then((r) => r.json()).then((h) => {
-  const up = !!h.ok, egress = !!h.proxy
-  $('ext-state').textContent = !up ? 'unreachable' : egress ? 'ready · India egress' : 'up · no India egress'
+  const up = !!h.ok
+  // Locally the hosted browser egresses from THIS machine's own IP, so a proxy is
+  // irrelevant — a residential Indian connection renders myAadhaar directly.
+  const egress = LOCAL || !!h.proxy
+  $('ext-state').textContent = !up ? 'unreachable' : LOCAL ? 'up · local IP' : egress ? 'ready · India egress' : 'up · no India egress'
   const warn = !up || !egress
   $('ext-state').style.color = warn ? 'var(--amber)' : ''
   $('ext-dot').style.background = warn ? 'var(--amber)' : ''
