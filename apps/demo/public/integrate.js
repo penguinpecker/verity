@@ -1,31 +1,31 @@
-// The live integration demo. This page IS an integrating app: it calls the same
-// window.verity provider that @verity/sdk/browser wraps, with the claims the
-// visitor toggles. Nothing here is simulated — the flow opens the real myAadhaar,
-// the proof is a real zkTLS proof, and the tx link is a real Horizen transaction.
+// The live integration demo. This page IS an integrating app, and it runs the
+// exact SDK call shown in the snippet: requestIdentity() opens a private hosted
+// browser (Verity's remote-browser) as a modal, the user logs into the REAL
+// myAadhaar there — no extension — and the signed claims come back. Nothing mocked.
+import { requestIdentity } from '/verity-sdk.js'
+
 const VERIFIER = '0x85804b684Ce86AC1773950161886741862EE9DBB'
 const EXPLORER = 'https://explorer.horizen.io'
+const LOCAL = location.hostname === 'localhost' || location.hostname === '127.0.0.1'
+const HOSTED = LOCAL ? 'http://localhost:4199' : 'https://verity-browser-production.up.railway.app'
 const $ = (id) => document.getElementById(id)
 const short = (a) => (a ? a.slice(0, 6) + '…' + a.slice(-4) : '—')
 
 $('nav-contract').href = `${EXPLORER}/address/${VERIFIER}`
 $('foot-contract').textContent = VERIFIER
 
-// ---- extension detection -----------------------------------------------------
-let extReady = false
-let running = false
-function setExtState(ready) {
-  extReady = ready
-  $('ext-state').textContent = ready ? 'connected' : 'not detected'
-  $('ext-state').style.color = ready ? '' : 'var(--amber)'
-  $('ext-dot').style.background = ready ? '' : 'var(--amber)'
-  $('ext-missing').hidden = ready
-  // Never re-enable the button while a verification is in flight — the delayed
-  // detection re-check fires mid-run otherwise.
-  $('run').disabled = running || !ready
-}
-setExtState(!!window.verity)
-window.addEventListener('verity#initialized', () => setExtState(true))
-setTimeout(() => setExtState(!!window.verity), 1200)
+// ---- hosted-browser reachability + egress status ----------------------------
+fetch(`${HOSTED}/api/health`).then((r) => r.json()).then((h) => {
+  const up = !!h.ok, egress = !!h.proxy
+  $('ext-state').textContent = !up ? 'unreachable' : egress ? 'ready · India egress' : 'up · no India egress'
+  const warn = !up || !egress
+  $('ext-state').style.color = warn ? 'var(--amber)' : ''
+  $('ext-dot').style.background = warn ? 'var(--amber)' : ''
+  $('egress-notice').hidden = !(up && !egress)
+}).catch(() => {
+  $('ext-state').textContent = 'unreachable'
+  $('ext-state').style.color = 'var(--amber)'; $('ext-dot').style.background = 'var(--amber)'
+})
 
 // ---- claims picker → live snippet -------------------------------------------
 const selectedClaims = () => {
@@ -53,7 +53,7 @@ refreshSnippet()
 
 // ---- pipeline ---------------------------------------------------------------
 const STAGES = [
-  ['awaiting-login', 'Waiting for you to log into myAadhaar (new tab)'],
+  ['awaiting-login', 'Waiting for you to log into myAadhaar (hosted browser)'],
   ['proving', 'Witnessing your session over TLS · proving claims'],
   ['done', 'Claims signed · age gate recorded on-chain'],
 ]
@@ -76,35 +76,35 @@ function setStage(key, state) {
     else if (i === idx) li.classList.add('active')
   })
 }
-window.addEventListener('verity#status', (e) => {
-  if (STAGES.some((s) => s[0] === e.detail.stage)) setStage(e.detail.stage, 'active')
-})
 
-// ---- run --------------------------------------------------------------------
+// ---- run — the exact SDK call the snippet shows -----------------------------
 const CLAIM_LABEL = { name: 'name', dob: 'date of birth' }
+let running = false
 
 async function run() {
-  if (!window.verity || running) return
+  if (running) return
   running = true
-  const btn = $('run')
-  btn.disabled = true
+  $('run').disabled = true
   $('err').hidden = true; $('seal').hidden = true; $('result').hidden = true; $('payload').hidden = true
   $('pipeline').hidden = false
-  renderSteps()
-  setStage('awaiting-login', 'active')
-
+  renderSteps(); setStage('awaiting-login', 'active')
   try {
-    const res = await window.verity.request({ flow: 'aadhaar-age', claims: selectedClaims() })
+    const res = await requestIdentity({
+      flow: 'aadhaar-age',
+      claims: selectedClaims(),
+      host: HOSTED,
+      onStatus: (stage) => { if (STAGES.some((s) => s[0] === stage)) setStage(stage, 'active') },
+    })
     setStage('done', 'done')
     showResult(res)
   } catch (e) {
-    $('err').textContent = String(e.message || e)
-    $('err').hidden = false
+    // A cancel just resets; a real error is surfaced.
+    if (!/cancel/i.test(String(e.message || e))) { $('err').textContent = String(e.message || e); $('err').hidden = false }
     $('pipeline').hidden = true
   } finally {
     running = false
-    btn.disabled = !extReady
-    btn.querySelector('.run-label').textContent = 'Verify again'
+    $('run').disabled = false
+    $('run').querySelector('.run-label').textContent = 'Verify again'
   }
 }
 
@@ -123,11 +123,10 @@ function showResult(res) {
   for (const c of ['name', 'dob']) if (res.claims && res.claims[c] != null) row(CLAIM_LABEL[c], escapeHtml(String(res.claims[c])))
   for (const m of res.missing || []) row(CLAIM_LABEL[m] || m, '<span class="chip miss">not witnessed</span>')
   const rec = (res.proofs || []).find((p) => p.tx)
-  row('attestor', short(res.attestor))
+  if (res.attestor) row('attestor', short(res.attestor))
   if (rec) row('transaction', `<a href="${rec.explorer}" target="_blank" rel="noopener">${short(rec.tx)} ↗</a>`)
   $('result').hidden = false
 
-  // The exact JSON an integrating backend gets — this run's real response.
   $('payload-json').textContent = JSON.stringify(
     { pass: res.pass, claims: res.claims, proofs: res.proofs, missing: res.missing }, null, 2)
   $('payload').hidden = false

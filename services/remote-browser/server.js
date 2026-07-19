@@ -30,11 +30,19 @@ const relayer = process.env.RELAYER_PRIVATE_KEY
   : null
 
 // ---- Browser (one instance, one isolated context per session) ---------------
-// Primary path is the on-device extension (see apps/extension) — the user's own
-// browser handles the login, so the hosted browser here is only for sources that
-// serve a datacenter browser directly. Locale/timezone are matched to the source's
-// region so the portal renders in the right locale.
-const browser = await chromium.launch({ headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage'] })
+// The hosted browser lets a user log in with NO extension — but a citizen portal
+// like myAadhaar refuses a datacenter IP (serves a blank page). Route egress
+// through a residential / in-region proxy so the portal sees a real Indian IP.
+// Credentials come from env ONLY (never committed): PROXY_SERVER (http[s]://host:port
+// or socks5://host:port), PROXY_USERNAME, PROXY_PASSWORD.
+const PROXY = process.env.PROXY_SERVER
+  ? { server: process.env.PROXY_SERVER, username: process.env.PROXY_USERNAME || undefined, password: process.env.PROXY_PASSWORD || undefined }
+  : null
+const browser = await chromium.launch({
+  headless: true,
+  args: ['--no-sandbox', '--disable-dev-shm-usage'],
+  ...(PROXY ? { proxy: PROXY } : {}),
+})
 const sessions = new Map()
 
 const jsonParse = (s) => { try { return JSON.parse(s) } catch { return null } }
@@ -44,7 +52,7 @@ const REGION = {
   US: { locale: 'en-US', timezoneId: 'America/New_York' },
 }
 
-async function startSession(ws, flow) {
+async function startSession(ws, flow, want) {
   const r = REGION[flow.region] || REGION.US
   const context = await browser.newContext({
     viewport: VIEWPORT, locale: r.locale, timezoneId: r.timezoneId,
@@ -72,7 +80,7 @@ async function startSession(ws, flow) {
   })
   page.on('framenavigated', (f) => { if (f === page.mainFrame() && ws.readyState === 1) ws.send(JSON.stringify({ type: 'url', url: f.url() })) })
 
-  const s = { context, page, cdp, captured, flow, proving: false }
+  const s = { context, page, cdp, captured, flow, want: want && want.length ? want : ['age'], proving: false }
   sessions.set(ws, s)
 
   // Stream + signal ready BEFORE navigating: the real login page can be slow to
@@ -108,18 +116,12 @@ async function handleInput(s, m) {
 async function runProof(ws, s) {
   const send = (type, data) => { if (ws.readyState === 1) ws.send(JSON.stringify({ type, ...data })) }
   const flow = s.flow
+  const want = s.want
   send('prove-step', { name: 'reading-session' })
 
   const hit = [...s.captured].reverse().find((c) => flow.detect.test(c.body))
   if (!hit) {
     send('prove-error', { message: 'Could not find your profile data yet. Log in fully and open your profile page, then try again.' })
-    return
-  }
-  const { maxBirthYear, matchers } = buildAgePredicate(flow.minAge)
-  const matcher = matchers.find((m) => new RegExp(m).test(hit.body))
-  if (!matcher) {
-    // A DOB is present but the birth year is too recent to guarantee the threshold.
-    send('prove-result', { pass: false, reason: `Age does not clear ${flow.minAge}+ (born after ${maxBirthYear}).` })
     return
   }
 
@@ -133,29 +135,36 @@ async function runProof(ws, s) {
   const publicHeaders = {}
   for (const k of ['referer', 'accept', 'accept-language']) if (rh[k]) publicHeaders[k] = rh[k]
 
-  const verity = new VerityClient()
   try {
     send('prove-step', { name: 'witnessing-tls' })
-    const proof = await verity.prove({
-      url: hit.url, method: hit.method || 'GET', headers: publicHeaders, match: matcher,
-      secretParams: { cookieStr, headers: secretHeaders },
+    const { gateFailed, maxBirthYear, out, ageProof } = await proveClaims({
+      url: hit.url, method: hit.method || 'GET', publicHeaders,
+      secretParams: { cookieStr, headers: secretHeaders }, flow, want,
       onStep: (st) => send('prove-step', { name: st?.name || String(st) }),
     })
-    send('prove-proof', { attestor: proof.attestor, identifier: proof.identifier })
+    if (gateFailed) { send('prove-result', { pass: false, question: flow.question, reason: `Age does not clear ${flow.minAge}+ (born after ${maxBirthYear}).` }); return }
+    if (!out.proofs.length) { send('prove-result', { pass: false, reason: 'None of the requested fields could be witnessed from your profile.' }); return }
+    send('prove-proof', { attestor: out.proofs[0].attestor, identifier: out.proofs[0].identifier })
 
-    if (!relayer) { send('prove-error', { message: 'relayer not configured (set RELAYER_PRIVATE_KEY)' }); return }
-    send('prove-step', { name: 'recording-onchain' })
-    const contract = new Contract(VERIFIER, VERIFY_ABI, relayer)
-    const tx = await contract.verifyAndRecord(toOnchainProof(proof))
-    send('prove-tx', { hash: tx.hash, status: 'pending', explorer: `${EXPLORER}/tx/${tx.hash}` })
-    const rc = await tx.wait()
-    send('prove-result', { pass: true, question: flow.question, reveals: flow.reveals, hides: flow.hides,
-      attestor: proof.attestor, identifier: proof.identifier,
-      tx: tx.hash, block: Number(rc.blockNumber), explorer: `${EXPLORER}/tx/${tx.hash}` })
+    let tx = null, block = null
+    if (relayer && ageProof) {
+      send('prove-step', { name: 'recording-onchain' })
+      const contract = new Contract(VERIFIER, VERIFY_ABI, relayer)
+      const t = await contract.verifyAndRecord(toOnchainProof(ageProof))
+      send('prove-tx', { hash: t.hash, status: 'pending', explorer: `${EXPLORER}/tx/${t.hash}` })
+      const rc = await t.wait(); tx = t.hash; block = Number(rc.blockNumber)
+      const rec = out.proofs[0]; rec.tx = tx; rec.block = block; rec.explorer = `${EXPLORER}/tx/${tx}`
+    }
+    const wantsAge = want.includes('age')
+    send('prove-result', {
+      pass: wantsAge ? out.claims[`age_over_${flow.minAge}`] === true : out.missing.length === 0,
+      question: wantsAge ? flow.question : undefined, reveals: wantsAge ? flow.reveals : undefined, hides: wantsAge ? flow.hides : undefined,
+      claims: out.claims, proofs: out.proofs, missing: out.missing,
+      attestor: out.proofs[0].attestor, identifier: out.proofs[0].identifier,
+      tx, block, explorer: tx ? `${EXPLORER}/tx/${tx}` : null,
+    })
   } catch (e) {
     send('prove-error', { message: String(e?.shortMessage || e?.message || e) })
-  } finally {
-    await verity.close()
   }
 }
 
@@ -177,7 +186,10 @@ app.use((req, res, next) => {
 })
 app.use(express.json({ limit: '2mb' }))
 app.get('/api/flows', (_req, res) => res.json(flowList()))
-app.get('/api/health', (_req, res) => res.json({ ok: true, sessions: sessions.size, relayer: !!relayer }))
+// `proxy` reports only WHETHER an egress proxy is configured (never its value),
+// so the demo can honestly show whether the hosted browser can reach a
+// geo-restricted portal like myAadhaar.
+app.get('/api/health', (_req, res) => res.json({ ok: true, sessions: sessions.size, relayer: !!relayer, proxy: !!PROXY }))
 
 // On-device capture endpoint: the Verity EXTENSION captures the user's session in
 // their OWN browser (residential IP, real fingerprint — no bot wall) and posts the
@@ -215,6 +227,43 @@ const isTransportError = (e) => {
   return /timed? ?out|network|socket|websocket|connection|ECONN|ENOTFOUND|EAI_AGAIN/i.test(String(e?.message || e))
 }
 
+// Shared claims prover used by BOTH the extension backend (/api/prove-session)
+// and the hosted-browser flow (runProof). Proves each requested claim as a
+// separate real zkTLS proof over the same authenticated endpoint, and returns
+// the age-predicate proof separately as the ONLY proof eligible for on-chain
+// recording (disclosure proofs carry the plaintext value in claim.context, so
+// recording one would leak PII into public calldata). Transport errors propagate.
+async function proveClaims({ url, method = 'GET', publicHeaders = {}, secretParams, flow, want, onStep }) {
+  const ageKey = `age_over_${flow.minAge}`
+  const wantsAge = want.includes('age')
+  const verity = new VerityClient()
+  const tryMatchers = async (list) => {
+    for (const m of list) {
+      try { return await verity.prove({ url, method, headers: publicHeaders, match: m, secretParams, onStep }) }
+      catch (e) { if (isTransportError(e)) throw e /* else serialisation/predicate mismatch — next */ }
+    }
+    return null
+  }
+  try {
+    const out = { claims: {}, proofs: [], missing: [] }
+    let ageProof = null
+    if (wantsAge) {
+      const { maxBirthYear, matchers } = buildAgePredicate(flow.minAge)
+      ageProof = await tryMatchers(matchers)
+      if (!ageProof) return { gateFailed: true, maxBirthYear, out, ageProof: null }
+      out.claims[ageKey] = true
+      out.proofs.push({ claim: ageKey, attestor: ageProof.attestor, identifier: ageProof.identifier })
+    }
+    for (const field of want.filter((w) => w !== 'age')) {
+      const proof = await tryMatchers(flow.fields?.[field] || [])
+      if (!proof) { out.missing.push(field); continue }
+      out.claims[field] = proof.data[field]
+      out.proofs.push({ claim: field, attestor: proof.attestor, identifier: proof.identifier })
+    }
+    return { gateFailed: false, out, ageProof }
+  } finally { await verity.close() }
+}
+
 app.post('/api/prove-session', async (req, res) => {
   const { flow: flowId, cookieStr, url, headers, claims } = req.body || {}
   const flow = getFlow(flowId)
@@ -227,45 +276,21 @@ app.post('/api/prove-session', async (req, res) => {
 
   const secretHeaders = {}
   if (headers && typeof headers === 'object') for (const k of Object.keys(headers)) if (/^(authorization|x-.*|.*-token)$/i.test(k)) secretHeaders[k] = headers[k]
-  const secretParams = { cookieStr, headers: secretHeaders }
   const ageKey = `age_over_${flow.minAge}`
   const wantsAge = want.includes('age')
   // question/reveals/hides describe the age gate — only meaningful when it was requested.
   const gateText = wantsAge ? { question: flow.question, reveals: flow.reveals, hides: flow.hides } : {}
 
-  const verity = new VerityClient()
-  const tryMatchers = async (list) => {
-    for (const m of list) {
-      try { return await verity.prove({ url, match: m, secretParams }) }
-      catch (e) { if (isTransportError(e)) throw e /* else: serialisation mismatch or predicate not met — try the next */ }
-    }
-    return null
-  }
-
   try {
-    const out = { claims: {}, proofs: [], missing: [] }
-    let ageProof = null // the ONLY proof that may be recorded on-chain
-
-    if (wantsAge) {
-      const { maxBirthYear, matchers } = buildAgePredicate(flow.minAge)
-      ageProof = await tryMatchers(matchers)
-      if (!ageProof) {
-        // The gate failed: the fields below were never attempted, so they are
-        // NOT "missing" — missing is reserved for attempted-but-unwitnessable.
-        return res.json({ pass: false, ...gateText, claims: {}, proofs: [], missing: [],
-          reason: `${ageKey.replace(/_/g, ' ')} not provable (born after ${maxBirthYear}), or the profile field could not be witnessed.` })
-      }
-      out.claims[ageKey] = true
-      out.proofs.push({ claim: ageKey, attestor: ageProof.attestor, identifier: ageProof.identifier })
+    const { gateFailed, maxBirthYear, out, ageProof } = await proveClaims({
+      url, secretParams: { cookieStr, headers: secretHeaders }, flow, want,
+    })
+    if (gateFailed) {
+      // The gate failed: the fields below were never attempted, so they are NOT
+      // "missing" — missing is reserved for attempted-but-unwitnessable.
+      return res.json({ pass: false, ...gateText, claims: {}, proofs: [], missing: [],
+        reason: `${ageKey.replace(/_/g, ' ')} not provable (born after ${maxBirthYear}), or the profile field could not be witnessed.` })
     }
-
-    for (const field of want.filter((w) => w !== 'age')) {
-      const proof = await tryMatchers(flow.fields?.[field] || [])
-      if (!proof) { out.missing.push(field); continue }
-      out.claims[field] = proof.data[field]
-      out.proofs.push({ claim: field, attestor: proof.attestor, identifier: proof.identifier })
-    }
-
     if (!out.proofs.length) {
       return res.json({ pass: false, ...gateText, claims: {}, proofs: [], missing: out.missing,
         reason: 'None of the requested fields could be witnessed from the profile response.' })
@@ -289,7 +314,7 @@ app.post('/api/prove-session', async (req, res) => {
       tx, block, explorer: tx ? `${EXPLORER}/tx/${tx}` : null })
   } catch (e) {
     res.status(502).json({ error: String(e?.shortMessage || e?.message || e) })
-  } finally { await verity.close() }
+  }
 })
 
 app.use(express.static(path.join(__dirname, 'public')))
@@ -297,8 +322,10 @@ app.use(express.static(path.join(__dirname, 'public')))
 const server = http.createServer(app)
 const wss = new WebSocketServer({ server, path: '/session' })
 wss.on('connection', async (ws, req) => {
-  const flowId = new URL(req.url, 'http://x').searchParams.get('flow')
-  const flow = getFlow(flowId)
+  const u = new URL(req.url, 'http://x')
+  const flow = getFlow(u.searchParams.get('flow'))
+  const claimsParam = (u.searchParams.get('claims') || 'age').split(',').map((c) => c.trim()).filter(Boolean)
+  const { want } = normalizeClaims(claimsParam, flow)
   ws.on('message', async (buf) => {
     const m = jsonParse(buf.toString()); if (!m) return
     const s = sessions.get(ws)
@@ -310,7 +337,7 @@ wss.on('connection', async (ws, req) => {
   })
   ws.on('close', () => destroy(ws))
   ws.on('error', () => destroy(ws))
-  try { await startSession(ws, flow) } catch (e) { ws.send(JSON.stringify({ type: 'prove-error', message: 'browser failed to start: ' + String(e?.message || e) })); ws.close() }
+  try { await startSession(ws, flow, want.length ? want : ['age']) } catch (e) { ws.send(JSON.stringify({ type: 'prove-error', message: 'browser failed to start: ' + String(e?.message || e) })); ws.close() }
 })
 
 server.listen(PORT, () => console.log(`Verity remote-browser on http://localhost:${PORT} (relayer ${relayer ? 'on' : 'off'})`))

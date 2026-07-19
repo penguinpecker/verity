@@ -104,3 +104,9 @@ code{font-family:var(--mono)}
   .split{grid-template-columns:1fr;height:auto}
   .panel{border-left:none;border-top:1px solid var(--line)}
 }
+
+/* embed mode — framed as a modal inside an integrating app (no picker chrome) */
+body.embed{background:transparent}
+body.embed .top{display:none}
+body.embed #stage{padding:0}
+body.embed .split{border-radius:0}

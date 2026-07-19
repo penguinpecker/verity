@@ -28,9 +28,10 @@
       <h1 class="reveal" style="--d:1">Ask for proof,<br />not <em>documents.</em></h1>
       <p class="lede reveal" style="--d:2">
         Your app needs “18+”, a name, a birth date — not a copy of anyone's Aadhaar.
-        Request claims with the SDK; your user proves them from
-        <strong>myAadhaar, in their own browser</strong>; you receive attestor-signed
-        answers with an on-chain record. Credentials and OTP never touch you — or Verity.
+        Request claims with the SDK; your user logs into
+        <strong>myAadhaar inside a private browser Verity hosts</strong> — no extension,
+        no install — and you receive attestor-signed answers with an on-chain record.
+        Credentials and OTP never reach you.
       </p>
     </section>
 
@@ -44,7 +45,7 @@
         </div>
         <div class="live">
           <span class="live-dot" id="ext-dot"></span>
-          <span class="live-label">extension</span>
+          <span class="live-label">hosted browser</span>
           <span class="live-price" id="ext-state">checking…</span>
         </div>
       </div>
@@ -71,13 +72,11 @@
         </label>
       </div>
 
-      <div class="ext-missing" id="ext-missing" hidden>
-        <b>Verity extension not detected.</b> This flow runs the login on <i>your</i> device — it needs the extension:
-        <ol>
-          <li>Clone <a href="https://github.com/penguinpecker/verity" target="_blank" rel="noopener">github.com/penguinpecker/verity</a></li>
-          <li>Open <span class="mono">chrome://extensions</span> → enable Developer mode → <b>Load unpacked</b> → <span class="mono">apps/extension</span></li>
-          <li>Reload this page</li>
-        </ol>
+      <div class="ext-missing" id="egress-notice" hidden>
+        <b>Hosted browser has no India egress yet.</b> myAadhaar refuses a datacenter IP,
+        so it renders blank until an India / residential proxy is configured on the hosted
+        browser (env <span class="mono">PROXY_SERVER</span>). The flow below is fully wired —
+        it lights up the moment egress is set.
       </div>
 
       <div class="pipeline" id="pipeline" hidden><ol class="steps" id="steps"></ol></div>
@@ -106,7 +105,7 @@
 
       <button id="run" class="run">
         <span class="run-label">Verify with Verity</span>
-        <span class="run-sub">opens myAadhaar · you log in · proof runs automatically</span>
+        <span class="run-sub">opens a private hosted browser · you log in · proof runs — no extension</span>
       </button>
       <p class="err" id="err" hidden></p>
     </section>
@@ -147,8 +146,8 @@ await verifyProof(proof, {
     </section>
 
     <section class="how">
-      <div class="how-col reveal" style="--d:5"><span class="how-n">01</span><h3>Login stays on-device</h3><p>The user signs into myAadhaar in their own browser — their IP, their fingerprint, their OTP. No hosted browser, no credential sharing, no bot walls.</p></div>
-      <div class="how-col reveal" style="--d:6"><span class="how-n">02</span><h3>Witness, don't collect</h3><p>The attestor re-fetches the profile over TLS with the session cookie redacted. Age is proven as a predicate — the DOB bytes stay hidden unless the user approves disclosure.</p></div>
+      <div class="how-col reveal" style="--d:5"><span class="how-n">01</span><h3>Hosted browser, no install</h3><p>Your user logs into myAadhaar inside a private, isolated browser Verity hosts — streamed into this page. No extension to install, no app to download.</p></div>
+      <div class="how-col reveal" style="--d:6"><span class="how-n">02</span><h3>Witness, don't collect</h3><p>The attestor witnesses the profile response over TLS with the session cookie redacted. Age is proven as a predicate — the DOB stays hidden unless the user approves disclosure.</p></div>
       <div class="how-col reveal" style="--d:7"><span class="how-n">03</span><h3>Signed &amp; recorded</h3><p>Each claim carries an attestor signature your backend can re-verify, and the age gate is recorded by a real transaction on the Horizen-mainnet verifier.</p></div>
     </section>
   </main>
@@ -158,6 +157,7 @@ await verifyProof(proof, {
     <span class="mono" id="foot-contract">—</span>
   </footer>
 
-  <script src="/integrate.js"></script>
+  <!-- requestIdentity() (in the SDK) builds its own hosted-browser modal on demand. -->
+  <script type="module" src="/integrate.js"></script>
 </body>
 </html>
