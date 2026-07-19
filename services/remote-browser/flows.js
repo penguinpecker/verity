@@ -27,9 +27,13 @@ export const FLOWS = {
     // Selective-disclosure matchers (used ONLY when the app requests — and the user
     // approves — revealing a field). Each variant is tried until the attestor can
     // witness one against the real profile response; named group = revealed value.
+    // Matcher ORDER matters: regex reveals the FIRST occurrence in the raw body,
+    // and profile APIs often carry earlier generic "name" keys (languages,
+    // document titles). Source-specific keys go first; bare "name" is last resort.
     fields: {
       name: [
-        '"(?:name|fullName|full_name|residentName|resident_name|localName)"\\s*:\\s*"(?<name>[^"\\\\]{2,80})"',
+        '"(?:residentName|resident_name|localName|fullName|full_name)"\\s*:\\s*"(?<name>[^"\\\\]{2,80})"',
+        '"name"\\s*:\\s*"(?<name>[^"\\\\]{2,80})"',
       ],
       dob: [
         '"(?:dob|dateOfBirth|date_of_birth|dateOfbirth|birth_date|birthDate)"\\s*:\\s*"(?<dob>[0-9]{1,4}[-/][0-9]{1,2}[-/][0-9]{1,4})"',
@@ -54,7 +58,8 @@ export const FLOWS = {
     fields: {
       name: [
         '"(?:first_?name|fname)"\\s*:\\s*"(?<name>[^"\\\\]{2,80})"',
-        '"(?:name|fullName|full_name|legal_name|legalName)"\\s*:\\s*"(?<name>[^"\\\\]{2,80})"',
+        '"(?:legal_name|legalName|fullName|full_name)"\\s*:\\s*"(?<name>[^"\\\\]{2,80})"',
+        '"name"\\s*:\\s*"(?<name>[^"\\\\]{2,80})"',
       ],
       dob: [
         '"(?:birth_date|birthDate|dob|dateOfBirth)"\\s*:\\s*"(?<dob>[0-9]{4}-[0-9]{2}-[0-9]{2})"',

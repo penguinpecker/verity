@@ -13,10 +13,14 @@
   const origFetch = window.fetch
   window.fetch = async function (...args) {
     const res = await origFetch.apply(this, args)
+    // Sniff the body DETACHED — never delay returning the response. Awaiting
+    // clone().text() here would block the page's own fetch until the body ends,
+    // deadlocking any streaming (SSE/long-poll) endpoint the portal uses.
     try {
-      const txt = await res.clone().text()
-      if (DOB.test(txt)) report(res.url || (typeof args[0] === 'string' ? args[0] : args[0] && args[0].url), (args[1] && args[1].method) || 'GET')
-    } catch { /* opaque/streamed — skip */ }
+      res.clone().text()
+        .then((txt) => { if (txt && DOB.test(txt)) report(res.url || (typeof args[0] === 'string' ? args[0] : args[0] && args[0].url), (args[1] && args[1].method) || 'GET') })
+        .catch(() => { /* opaque/streamed — skip */ })
+    } catch { /* unclonable — skip */ }
     return res
   }
 

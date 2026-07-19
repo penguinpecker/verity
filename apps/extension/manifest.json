@@ -1,10 +1,10 @@
 {
   "manifest_version": 3,
   "name": "Verity — prove it, reveal nothing",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Prove facts about yourself (age, name, DOB) from a site you already log into — reveal only what you approve. On-device zkTLS, no credentials shared.",
   "action": { "default_popup": "popup.html", "default_title": "Verity" },
-  "permissions": ["cookies", "activeTab", "tabs", "storage"],
+  "permissions": ["cookies", "activeTab", "tabs", "storage", "alarms"],
   "host_permissions": [
     "https://*.uidai.gov.in/*",
     "https://*.id.me/*",

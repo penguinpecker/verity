@@ -12,13 +12,16 @@ $('foot-contract').textContent = VERIFIER
 
 // ---- extension detection -----------------------------------------------------
 let extReady = false
+let running = false
 function setExtState(ready) {
   extReady = ready
   $('ext-state').textContent = ready ? 'connected' : 'not detected'
   $('ext-state').style.color = ready ? '' : 'var(--amber)'
   $('ext-dot').style.background = ready ? '' : 'var(--amber)'
   $('ext-missing').hidden = ready
-  $('run').disabled = !ready
+  // Never re-enable the button while a verification is in flight — the delayed
+  // detection re-check fires mid-run otherwise.
+  $('run').disabled = running || !ready
 }
 setExtState(!!window.verity)
 window.addEventListener('verity#initialized', () => setExtState(true))
@@ -81,7 +84,8 @@ window.addEventListener('verity#status', (e) => {
 const CLAIM_LABEL = { name: 'name', dob: 'date of birth' }
 
 async function run() {
-  if (!window.verity) return
+  if (!window.verity || running) return
+  running = true
   const btn = $('run')
   btn.disabled = true
   $('err').hidden = true; $('seal').hidden = true; $('result').hidden = true; $('payload').hidden = true
@@ -98,6 +102,7 @@ async function run() {
     $('err').hidden = false
     $('pipeline').hidden = true
   } finally {
+    running = false
     btn.disabled = !extReady
     btn.querySelector('.run-label').textContent = 'Verify again'
   }

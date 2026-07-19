@@ -254,7 +254,7 @@ h1 em { font-style: italic; color: var(--mint); }
   .top { padding: 22px 20px; }
   main { padding: 0 20px 60px; }
   .hero { padding: 44px 0 36px; }
-  .links a:first-child { display: none; }
+  .links a#nav-contract { display: none; }
   .panel { padding: 20px; }
   .result { grid-template-columns: 1fr; gap: 22px; }
   .how { grid-template-columns: 1fr; }
